@@ -71,15 +71,23 @@
 
 - [x] Шаг 1: Уточнить бизнес-правила по валюте `RUB` в форме переноса: курс для `RUB` должен быть `1`.
 - [x] Шаг 2: Уточнить, что значит "убрать статус canceled": статус остается на беке, на фронте скрывается возможность перехода в него.
-- [ ] Шаг 3: Скрыть frontend action `cancel` для `OperatorPayment`, не меняя backend AASM и финансовую логику исторических `canceled`.
-- [ ] Шаг 4: Добавить валюту и курс в данные попапа переноса: defaults из исходного платежа `record.currency` и `record.currency_rate`; если данных нет, fallback `currency = 'USD'`, `currency_rate = 0.0`.
-- [ ] Шаг 5: Добавить в шаблон переноса блок "курс + кнопка обновления + селектор валюты" по паттерну `_operator_payment_editor.hjs`.
-- [ ] Шаг 6: Добавить в transfer popup загрузку актуальных курсов через `record.operator` или `order.package.operator`, выбрать курс по текущей валюте, для `RUB` ставить `1`, обновлять `data.currency_rate` по кнопке.
-- [ ] Шаг 7: Передавать `currency` и `currency_rate` из `Manager::OperatorPaymentsController#transfer` в `OperatorPayments::Transfer`.
-- [ ] Шаг 8: В `OperatorPayments::Transfer#create_target_operator_payment!` сохранять пришедшие `currency` и `currency_rate`; если они не пришли, использовать fallback `USD` и `0.0`.
-- [ ] Шаг 9: В `OperatorPayments::Transfer` логировать создание целевого платежа в целевом заказе через `ManagerTracker` так же, как в `Manager::ResourceController`; сумма в логе остается как в `ManagerTracker`.
-- [ ] Шаг 10: Обновить/добавить focused specs для `OperatorPayments::Transfer`: создание целевого платежа с валютой/курсом, fallback `USD`/`0.0`, лог создания в целевом заказе, отсутствие создания при `state = transfer`.
-- [ ] Шаг 11: Выполнить статические проверки CoffeeScript/Ruby и focused RSpec для измененного сервиса.
+- [x] Шаг 3: Скрыть frontend action `cancel` для `OperatorPayment`, не меняя backend AASM и финансовую логику исторических `canceled`.
+- [x] Шаг 4: Добавить валюту и курс в данные попапа переноса: defaults из исходного платежа `record.currency` и `record.currency_rate`; если данных нет, fallback `currency = 'USD'`, `currency_rate = 0.0`.
+- [x] Шаг 5: Добавить в шаблон переноса блок "курс + кнопка обновления + селектор валюты" по паттерну `_operator_payment_editor.hjs`.
+- [x] Шаг 6: Добавить в transfer popup загрузку актуальных курсов через `record.operator` или `order.package.operator`, выбрать курс по текущей валюте, для `RUB` ставить `1`, обновлять `data.currency_rate` по кнопке.
+- [x] Шаг 7: Передавать `currency` и `currency_rate` из `Manager::OperatorPaymentsController#transfer` в `OperatorPayments::Transfer`.
+- [x] Шаг 8: В `OperatorPayments::Transfer#create_target_operator_payment!` сохранять пришедшие `currency` и `currency_rate`; если они не пришли, использовать fallback `USD` и `0.0`.
+- [x] Шаг 9: В `OperatorPayments::Transfer` логировать создание целевого платежа в целевом заказе через `ManagerTracker` так же, как в `Manager::ResourceController`; сумма в логе остается как в `ManagerTracker`.
+- [x] Шаг 10: Обновить/добавить focused specs для `OperatorPayments::Transfer`: создание целевого платежа с валютой/курсом, fallback `USD`/`0.0`, лог создания в целевом заказе, отсутствие создания при `state = transfer`.
+- [x] Шаг 11: Выполнить статические проверки CoffeeScript/Ruby и focused RSpec для измененного сервиса.
+
+Проверки:
+
+- `ruby -c app/services/operator_payments/transfer.rb`
+- `ruby -c app/controllers/manager/operator_payments_controller.rb`
+- `bundle exec ruby -e "require 'coffee_script'; CoffeeScript.compile(...)"` для измененных CoffeeScript-файлов
+- `git diff --check`
+- `bin/rspec spec/services/operator_payments/transfer_spec.rb`
 
 ## 8. Вопросы для уточнения
 
