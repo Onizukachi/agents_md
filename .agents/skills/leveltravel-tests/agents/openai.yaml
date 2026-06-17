@@ -1,0 +1,4 @@
+interface:
+  display_name: "LevelTravel Tests"
+  short_description: "Run TeamCity-compatible Rails RSpec"
+  default_prompt: "Use $leveltravel-tests to verify LevelTravel Rails changes with the TeamCity-compatible Docker RSpec flow and clearly distinguish focused local specs from the PR gate."

@@ -1,0 +1,7 @@
+interface:
+  display_name: "LevelTravel PR Workflow"
+  short_description: "Prepare LevelTravel branches and PRs safely"
+  default_prompt: "Use $leveltravel-pr-workflow to refresh develop, keep the branch isolated, run the TeamCity-compatible test gate, run PR review, push, and open or update a ready PR."
+
+policy:
+  allow_implicit_invocation: true

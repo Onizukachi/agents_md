@@ -46,11 +46,10 @@ Use this when `manager/index.prod.js` or another compiled asset still contains o
 
 After every change to any of:
 - `AGENTS.md`
-- `.agents/tasks/**/*`
-- `.agents/docs/**/*`
+- `.agents/**/*`
 
 Do all of the following:
-1. Mirror updated files into `../agents_md/`.
+1. Mirror `AGENTS.md` and the whole `.agents/` directory into `../agents_md/`.
 2. Run `git pull` inside `../agents_md` before push.
 3. Commit and push mirrored changes in `../agents_md`.
 

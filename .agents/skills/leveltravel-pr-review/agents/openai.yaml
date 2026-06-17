@@ -1,0 +1,4 @@
+interface:
+  display_name: "LevelTravel PR Review"
+  short_description: "Review LevelTravel PR risk"
+  default_prompt: "Use $leveltravel-pr-review to review the current LevelTravel branch against develop after tests and before pushing or updating a pull request."
