@@ -214,6 +214,7 @@ After migration edits:
 ## 13) Testing Rules
 
 - Use RSpec (not minitest).
+- Do not use the `leveltravel-tests` skill. Run required test commands directly in the repository shell.
 - Pre-review minimum: run tests only for changed files/changed behavior.
 - Prefer focused runs:
 
