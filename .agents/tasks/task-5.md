@@ -56,8 +56,6 @@
   Полная цена пакета до пересчета (`net_price + fuel_charge`).
 - `package_price_after`
   Полная цена пакета после пересчета.
-- `recalculatable_amount`
-  Часть стоимости пакета, которую разрешено уменьшать.
 - `net_price_before`
   `package.net_price` до применения.
 - `fuel_charge_before`
@@ -89,8 +87,6 @@
   Чтобы в preview, журнале и экспорте было видно, какой курс был у заказа и какой курс применили.
 - `package_price_before`, `package_price_after`
   Чтобы быстро видеть итог изменения пакета без повторного расчета.
-- `recalculatable_amount`
-  Чтобы было видно, какая часть пакета вообще подпадала под уценку.
 - `net_price_*`, `fuel_charge_*`
   Это фактический snapshot для точного применения и отката.
 - `status` и временные поля
@@ -133,7 +129,7 @@
 - `Order::PriceRecalculations::MarkupFloorResolver`
   Возвращает минимально допустимую цену пакета по applied валютному markup.
 - `Order::PriceRecalculations::RecalculatableAmountCalculator`
-  Считает, какая часть пакета может быть уменьшена.
+  Считает на лету, какая часть пакета может быть уменьшена.
 - `Order::PriceRecalculations::Preview`
   Собирает расчет до применения.
 - `Order::PriceRecalculations::Apply`
@@ -206,18 +202,18 @@ Fallback:
 
 - `candidate_package_price = target_rate * package.full_price_in_foreign_currency`
 
-### 8.4. `recalculatable_amount`
+### 8.4. Расчет допустимой базы пересчета
 
 Обычный случай:
 
 - `client_package_debt = [current_package_price - paid_amount_rub, 0].max`
-- `recalculatable_amount = client_package_debt`
+- допустимая база пересчета равна `client_package_debt`
 
 Regular flights:
 
 - `package_operator_paid = operator_payments.where(service_type: 'order').sum(&:paid_amount)`
 - `operator_package_unpaid = [current_package_price - package_operator_paid, 0].max`
-- `recalculatable_amount = [client_package_debt, operator_package_unpaid].min`
+- допустимая база пересчета равна `[client_package_debt, operator_package_unpaid].min`
 
 ### 8.5. Ограничение снижения
 
@@ -267,7 +263,7 @@ Regular flights:
    - курс заказа;
    - целевой курс;
    - цену пакета до/после;
-   - сумму, которая может быть уменьшена;
+   - сумму, которая может быть уменьшена, если ее нужно показать в интерфейсе;
    - причину отказа, если заказ не подходит.
 
 ### Apply
