@@ -1,6 +1,6 @@
 ---
 name: lvtv-elastic-logs
-description: Query and investigate any LVTV Elasticsearch log index through the LVTV logs MCP servers for main/core, integrations, and dynamics Elasticsearch clusters. Use when Codex needs to inspect Kibana/Elasticsearch logs, choose the correct cluster, discover indices and fields, analyze recent incidents, compare time windows, diagnose status/error spikes, study crawler/parser traffic, or explain request flows across Level Travel services.
+description: Query and investigate LVTV Elasticsearch logs through local Boundary tunnels to the LVTV logs MCP servers for main/core, integrations, and dynamics clusters. Use when Codex needs to inspect Kibana/Elasticsearch logs, choose the correct cluster, discover indices and fields, analyze recent incidents, compare time windows, diagnose status/error spikes, study crawler/parser traffic, or explain request flows across Level Travel services.
 ---
 
 # LVTV Elastic Logs
@@ -15,30 +15,19 @@ Use one of three MCP profiles:
 
 | Profile | MCP URL | Use for |
 |---|---|---|
-| `main` | `https://logs-mcp.core.lvtv.me/mcp` | Core/app logs: gateway, web-gateway, rails, nginx, nextjs, sidekiq, SEO, analytics, staging, jobs, and most `fbyc-*` app services. |
-| `integrations` | `https://logs-mcp.itgs-koa.lvtv.me/mcp` | Integration/search pipeline logs: actualizer, actualization-cache, booker, currency, ghe, go-tour, search-calendar, search-generator, searcher, stats-updater, storage. |
-| `dynamics` | `https://logs-mcp.dynamic.lvtv.me/mcp` | Dynamic pricing/search dynamic logs, mainly `fbyc-dynamic`. |
+| `main` | `http://127.0.0.1:32022/mcp` | Core/app logs through Boundary target `k8s-core`: gateway, web-gateway, rails, nginx, nextjs, sidekiq, SEO, analytics, staging, jobs, and most `fbyc-*` app services. |
+| `integrations` | `http://127.0.0.1:32012/mcp` | Integration/search pipeline logs through Boundary target `k8s-integrations`: actualizer, actualization-cache, booker, currency, ghe, go-tour, search-calendar, search-generator, searcher, stats-updater, storage. |
+| `dynamics` | `http://127.0.0.1:32002/mcp` | Dynamic pricing/search logs through Boundary target `k8s-dynamic`, mainly `fbyc-dynamic`. |
 
-Authenticate with API keys from `~/elastic-mcp-token`. Expected file format:
+Assume the user has already handled Boundary authorization and target connections locally. Do not send an `Authorization` header, do not read `~/elastic-mcp-token`, and do not run Boundary authentication, target connection, API calls, or target authorization from this skill. If a localhost port is not listening, report the missing Boundary tunnel and ask the user to open the corresponding target: `k8s-core` for `main`, `k8s-integrations` for `integrations`, or `k8s-dynamic` for `dynamics`.
 
-```text
-main:
-<base64 api key for https://logs-mcp.core.lvtv.me/mcp>
-integrations:
-<base64 api key for https://logs-mcp.itgs-koa.lvtv.me/mcp>
-dynamics:
-<base64 api key for https://logs-mcp.dynamic.lvtv.me/mcp>
-```
-
-Never print the token. Do not use `Bearer`; this MCP expects `ApiKey`.
-
-Prefer the bundled helper:
+Prefer the bundled helper from the repository root:
 
 ```bash
-python3 ~/.codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile main list_indices '{"index_pattern":"*gateway*"}'
-python3 ~/.codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile integrations list_indices '{"index_pattern":"*searcher*"}'
-python3 ~/.codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile dynamics list_indices '{"index_pattern":"*dynamic*"}'
-python3 ~/.codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile all find_index '{"index_pattern":"*unknown-fragment*"}'
+python3 .codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile main list_indices '{"index_pattern":"*gateway*"}'
+python3 .codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile integrations list_indices '{"index_pattern":"*searcher*"}'
+python3 .codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile dynamics list_indices '{"index_pattern":"*dynamic*"}'
+python3 .codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile all find_index '{"index_pattern":"*unknown-fragment*"}'
 ```
 
 ## Generic Workflow

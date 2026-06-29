@@ -2,14 +2,13 @@
 import argparse
 import json
 import os
-import sys
 import urllib.request
 
 
 DEFAULT_PROFILES = {
-    "main": "https://logs-mcp.core.lvtv.me/mcp",
-    "integrations": "https://logs-mcp.itgs-koa.lvtv.me/mcp",
-    "dynamics": "https://logs-mcp.dynamic.lvtv.me/mcp",
+    "main": "http://127.0.0.1:32022/mcp",
+    "integrations": "http://127.0.0.1:32012/mcp",
+    "dynamics": "http://127.0.0.1:32002/mcp",
 }
 
 PROFILE_ALIASES = {
@@ -24,35 +23,7 @@ PROFILE_ALIASES = {
     "dynamics": "dynamics",
 }
 
-TOKEN_PATH = os.path.expanduser(os.environ.get("LVTV_ELASTIC_MCP_TOKEN_PATH", "~/elastic-mcp-token"))
-
-
-def parse_token_file(path):
-    tokens = {}
-    current = None
-    with open(path, "r", encoding="utf-8") as token_file:
-        for raw in token_file:
-            line = raw.strip()
-            if not line or line.startswith("#"):
-                continue
-            if line.endswith(":"):
-                current = normalize_profile(line[:-1].strip())
-                tokens[current] = ""
-                continue
-            if current:
-                tokens[current] = line
-                current = None
-                continue
-            if ":" in line:
-                key, value = line.split(":", 1)
-                tokens[normalize_profile(key.strip())] = value.strip()
-                continue
-            if "=" in line:
-                key, value = line.split("=", 1)
-                tokens[normalize_profile(key.strip())] = value.strip()
-                continue
-            raise ValueError(f"token line without profile label: {line[:12]}...")
-    return tokens
+REQUEST_TIMEOUT_SECONDS = float(os.environ.get("LVTV_LOGS_MCP_TIMEOUT", "120"))
 
 
 def normalize_profile(profile):
@@ -89,7 +60,7 @@ def extract_content(event):
     return texts, parsed
 
 
-def call_mcp(profile, token, tool, arguments):
+def call_mcp(profile, tool, arguments):
     payload = {
         "jsonrpc": "2.0",
         "id": f"{profile}:{tool}",
@@ -97,17 +68,36 @@ def call_mcp(profile, token, tool, arguments):
         "params": {} if tool == "tools/list" else {"name": tool, "arguments": arguments},
     }
 
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+    }
+
     req = urllib.request.Request(
         profile_url(profile),
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"ApiKey {token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json, text/event-stream",
-        },
+        headers=headers,
     )
-    with urllib.request.urlopen(req, timeout=120) as response:
-        return response.read().decode("utf-8", "replace")
+    with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECONDS) as response:
+        return read_mcp_response(response)
+
+
+def read_mcp_response(response):
+    chunks = []
+    while True:
+        raw_line = response.readline()
+        if not raw_line:
+            break
+        line = raw_line.decode("utf-8", "replace")
+        chunks.append(line)
+        if line.startswith("data: "):
+            try:
+                event = json.loads(line[6:])
+            except json.JSONDecodeError:
+                continue
+            if "result" in event or "error" in event:
+                break
+    return "".join(chunks)
 
 
 def render_response(raw):
@@ -122,11 +112,11 @@ def render_response(raw):
     return texts
 
 
-def call_profile(profile, token, tool, arguments):
+def call_profile(profile, tool, arguments):
     if tool == "find_index":
         tool = "list_indices"
         arguments = {"index_pattern": arguments.get("index_pattern") or arguments.get("pattern") or arguments.get("index") or "*"}
-    raw = call_mcp(profile, token, tool, arguments)
+    raw = call_mcp(profile, tool, arguments)
     return render_response(raw)
 
 
@@ -137,7 +127,6 @@ def main():
     parser.add_argument("arguments", nargs="?", default="{}", help="JSON arguments")
     args = parser.parse_args()
 
-    tokens = parse_token_file(TOKEN_PATH)
     profile_arg = args.profile.strip().lower()
     profiles = list(DEFAULT_PROFILES) if profile_arg == "all" else [normalize_profile(profile_arg)]
     arguments = json.loads(args.arguments)
@@ -146,11 +135,8 @@ def main():
     for profile in profiles:
         if profile not in DEFAULT_PROFILES:
             raise SystemExit(f"unknown profile: {profile}")
-        token = tokens.get(profile)
-        if not token:
-            raise SystemExit(f"missing token for profile: {profile}")
         try:
-            results[profile] = call_profile(profile, token, args.tool, arguments)
+            results[profile] = call_profile(profile, args.tool, arguments)
         except Exception as exc:
             results[profile] = {"error": f"{type(exc).__name__}: {exc}"}
 
