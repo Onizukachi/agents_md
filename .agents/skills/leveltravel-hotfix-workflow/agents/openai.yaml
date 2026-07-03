@@ -1,0 +1,7 @@
+interface:
+  display_name: "LevelTravel Hotfix Workflow"
+  short_description: "Create paired LevelTravel hotfix PRs"
+  default_prompt: "Use $leveltravel-hotfix-workflow to create paired master and develop hotfix branches, cherry-pick the master commit, and open both PRs with HOTFIX titles."
+
+policy:
+  allow_implicit_invocation: true

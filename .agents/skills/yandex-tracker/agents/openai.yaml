@@ -1,4 +1,0 @@
-interface:
-  display_name: "Yandex Tracker"
-  short_description: "Read, write, and analyze Tracker/EpicFlow issues"
-  default_prompt: "Use $yandex-tracker to read, create, update, comment on, move, or analyze Yandex Tracker and LevelTravel EpicFlow issues."
