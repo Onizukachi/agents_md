@@ -159,6 +159,8 @@ Do not create migration files manually.
 4. Run any other Rails migration-related commands from inside `lt sh`.
 5. Keep `db/schema.rb` limited to relevant changes.
 6. Keep `ActiveRecord::Schema.define(version: ...)` aligned with latest applied migration.
+7. For reference columns in migrations, do not use database foreign keys. Prefer `t.references :model_name, null: false, index: { name: 'custom_index_name' }`.
+8. For reference-based lookup tables, add explicit composite indexes for the common date/filter access pattern when needed (for example `[:model_id, :start_date]` and `[:model_id, :end_date]`).
 
 ## 8) Job Rules
 
