@@ -161,6 +161,7 @@ Do not create migration files manually.
 6. Keep `ActiveRecord::Schema.define(version: ...)` aligned with latest applied migration.
 7. For reference columns in migrations, do not use database foreign keys. Prefer `t.references :model_name, null: false, index: { name: 'custom_index_name' }`.
 8. For reference-based lookup tables, add explicit composite indexes for the common date/filter access pattern when needed (for example `[:model_id, :start_date]` and `[:model_id, :end_date]`).
+9. After updating schema, run `bundle exec rails db:test:load` inside the Rails container to verify the test database loads the current schema without errors.
 
 ## 8) Job Rules
 
