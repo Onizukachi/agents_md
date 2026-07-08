@@ -16,4 +16,5 @@
 Перед стартом задай вопросы по любым пунктам, которые в плане описаны недостаточно конкретно.
 
 Считай каждый файл `task-{номер}.md` артефактом задачи.
-Если пользователь говорит `артефакт 3`, `восстанови контекст из артефакта 4` или `удали артефакт 2`, это означает работу с файлами `.agents/tasks/task-3.md`, `.agents/tasks/task-4.md` и `.agents/tasks/task-2.md`.
+- `Restore context from artifact N` means read `.agents/tasks/task-N.md` first and use it as the session recovery source.
+- `Delete artifact N` means delete `.agents/tasks/task-N.md`.

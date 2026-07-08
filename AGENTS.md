@@ -46,7 +46,6 @@
 ### Task Artifacts
 
 - Task artifacts live in `.agents/tasks/` as `task-<number>.md`.
-- When the user says `artifact 1`, `artifact 2`, or similar, interpret that as `.agents/tasks/task-1.md`, `.agents/tasks/task-2.md`, and so on.
 - `Restore context from artifact N` means read `.agents/tasks/task-N.md` first and use it as the session recovery source.
 - `Delete artifact N` means delete `.agents/tasks/task-N.md`.
 
