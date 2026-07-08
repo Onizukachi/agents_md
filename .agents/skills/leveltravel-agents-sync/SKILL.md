@@ -14,6 +14,7 @@ This skill governs sync only. Do not change application code merely because this
 Protect the target repository:
 
 - never delete or overwrite `../agents_md/.git`;
+- never copy nested git metadata from the source `.agents/.git` into the mirror;
 - never use destructive root-level sync that can remove destination-only git metadata;
 - mirror only `AGENTS.md` and `.agents/`;
 - if `../agents_md` is not a git repository, stop and report that state before attempting `git pull`, commit, or push.
@@ -35,12 +36,16 @@ If any of these checks fails, stop and report the exact problem.
 Mirror only the intended content:
 
 ```bash
-rsync -a AGENTS.md .agents/ ../agents_md/
+rsync -a AGENTS.md ../agents_md/
+mkdir -p ../agents_md/.agents
+rsync -a --exclude='.git' .agents/ ../agents_md/.agents/
 ```
 
 Do not use `--delete` against the root of `../agents_md`.
 
 The destination may contain git metadata or other repository-only files that must survive the mirror.
+
+The source `.agents/` may itself be a git repository. Always exclude its nested `.git` directory from the mirror copy.
 
 ## Git Sync Sequence
 
