@@ -3,24 +3,24 @@
 Use these JSON objects as templates with:
 
 ```bash
-python3 ~/.codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile main search '<json>'
+python3 scripts/mcp_call.py --profile main search '<json>'
 ```
 
-Replace `INDEX`, field names, and time windows after sampling documents.
+Run commands from the `lvtv-elastic-logs` skill directory, or adjust the script path relative to the current checkout or installed skill location. Replace `INDEX`, field names, and time windows after sampling documents.
 
 ## Profiles
 
 | Profile | URL | Typical index families |
 |---|---|---|
-| `main` | `https://logs-mcp.core.lvtv.me/mcp` | `fbyc-gateway`, `fbyc-web-gateway`, `fbyc-rails`, `fbyc-nginx`, `fbyc-nextjs`, `fbyc-sidekiq-*`, `fbyc-seo`, `fbyc-tourparser`, app/staging/jobs logs |
-| `integrations` | `https://logs-mcp.itgs-koa.lvtv.me/mcp` | `fbyc-actualizer`, `fbyc-actualization-cache`, `fbyc-booker`, `fbyc-currency`, `fbyc-ghe`, `fbyc-go-tour`, `fbyc-search-calendar`, `fbyc-search-generator`, `fbyc-searcher`, `fbyc-stats-updater`, `fbyc-storage` |
-| `dynamics` | `https://logs-mcp.dynamic.lvtv.me/mcp` | `fbyc-dynamic` |
+| `main` | `http://127.0.0.1:32022/mcp` | `k8s-core`: `fbyc-gateway`, `fbyc-web-gateway`, `fbyc-rails`, `fbyc-nginx`, `fbyc-nextjs`, `fbyc-sidekiq-*`, `fbyc-seo`, `fbyc-tourparser`, app/staging/jobs logs |
+| `integrations` | `http://127.0.0.1:32012/mcp` | `k8s-integrations`: `fbyc-actualizer`, `fbyc-actualization-cache`, `fbyc-booker`, `fbyc-currency`, `fbyc-ghe`, `fbyc-go-tour`, `fbyc-search-calendar`, `fbyc-search-generator`, `fbyc-searcher`, `fbyc-stats-updater`, `fbyc-storage` |
+| `dynamics` | `http://127.0.0.1:32002/mcp` | `k8s-dynamic`: `fbyc-dynamic` |
 
 ## List Indices
 
 ```bash
-python3 ~/.codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile main list_indices '{"index_pattern":"*SERVICE_FRAGMENT*"}'
-python3 ~/.codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile all find_index '{"index_pattern":"*SERVICE_FRAGMENT*"}'
+python3 scripts/mcp_call.py --profile main list_indices '{"index_pattern":"*SERVICE_FRAGMENT*"}'
+python3 scripts/mcp_call.py --profile all find_index '{"index_pattern":"*SERVICE_FRAGMENT*"}'
 ```
 
 ## Latest Documents

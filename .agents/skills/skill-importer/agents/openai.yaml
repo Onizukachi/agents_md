@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill Importer"
+  short_description: "Install shared skills from a repository"
+  default_prompt: "Use $skill-importer to install or update a Codex skill from the shared skills repository."

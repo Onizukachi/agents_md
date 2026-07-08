@@ -1,4 +1,4 @@
 interface:
   display_name: "LVTV Elastic Logs"
-  short_description: "Query LVTV Elasticsearch logs via MCP"
+  short_description: "Query LVTV Elasticsearch logs via MCP and Boundary"
   default_prompt: "Use $lvtv-elastic-logs to investigate recent production logs in LVTV Elasticsearch."

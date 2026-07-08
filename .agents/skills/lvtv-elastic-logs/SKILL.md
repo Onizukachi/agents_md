@@ -1,6 +1,6 @@
 ---
 name: lvtv-elastic-logs
-description: Query and investigate any LVTV Elasticsearch log index through the LVTV logs MCP servers for main/core, integrations, and dynamics Elasticsearch clusters. Use when Codex needs to inspect Kibana/Elasticsearch logs, choose the correct cluster, discover indices and fields, analyze recent incidents, compare time windows, diagnose status/error spikes, study crawler/parser traffic, or explain request flows across Level Travel services.
+description: Query and investigate LVTV Elasticsearch logs through local Boundary tunnels to the LVTV logs MCP servers for main/core, integrations, and dynamics clusters. Use when Codex needs to inspect Kibana/Elasticsearch logs, choose the correct cluster, discover indices and fields, analyze recent incidents, compare time windows, diagnose status/error spikes, study crawler/parser traffic, or explain request flows across Level Travel services.
 ---
 
 # LVTV Elastic Logs
@@ -9,36 +9,58 @@ description: Query and investigate any LVTV Elasticsearch log index through the 
 
 Use this skill as a generic investigation loop for LVTV Elasticsearch logs. Do not start from memorized field names or one past incident; first discover the index, sample its documents, infer the schema, then build narrow aggregations.
 
+Before first use, read `references/access.md` to check Boundary and logs MCP access requirements.
+
 ## Connection
 
 Use one of three MCP profiles:
 
 | Profile | MCP URL | Use for |
 |---|---|---|
-| `main` | `https://logs-mcp.core.lvtv.me/mcp` | Core/app logs: gateway, web-gateway, rails, nginx, nextjs, sidekiq, SEO, analytics, staging, jobs, and most `fbyc-*` app services. |
-| `integrations` | `https://logs-mcp.itgs-koa.lvtv.me/mcp` | Integration/search pipeline logs: actualizer, actualization-cache, booker, currency, ghe, go-tour, search-calendar, search-generator, searcher, stats-updater, storage. |
-| `dynamics` | `https://logs-mcp.dynamic.lvtv.me/mcp` | Dynamic pricing/search dynamic logs, mainly `fbyc-dynamic`. |
+| `main` | `http://127.0.0.1:32022/mcp` | Core/app logs through Boundary target `k8s-core`: gateway, web-gateway, rails, nginx, nextjs, sidekiq, SEO, analytics, staging, jobs, and most `fbyc-*` app services. |
+| `integrations` | `http://127.0.0.1:32012/mcp` | Integration/search pipeline logs through Boundary target `k8s-integrations`: actualizer, actualization-cache, booker, currency, ghe, go-tour, search-calendar, search-generator, searcher, stats-updater, storage. |
+| `dynamics` | `http://127.0.0.1:32002/mcp` | Dynamic pricing/search logs through Boundary target `k8s-dynamic`, mainly `fbyc-dynamic`. |
 
-Authenticate with API keys from `~/elastic-mcp-token`. Expected file format:
+Do not send an `Authorization` header and do not read local token files.
 
-```text
-main:
-<base64 api key for https://logs-mcp.core.lvtv.me/mcp>
-integrations:
-<base64 api key for https://logs-mcp.itgs-koa.lvtv.me/mcp>
-dynamics:
-<base64 api key for https://logs-mcp.dynamic.lvtv.me/mcp>
+The helper may start missing local Boundary tunnels itself. It only uses the local Boundary CLI/cache that already exists on the developer machine; it must not run Boundary login/authentication flows or ask for credentials. If the localhost MCP port is closed, the helper:
+
+1. checks `~/.boundary/cache.db` for the configured target name;
+2. starts `boundary connect` in the background on the expected local port;
+3. writes Boundary connect logs to `~/.cache/lvtv-elastic-logs/boundary-<profile>.log`;
+4. fails with a clear error if local Boundary auth/cache is stale or the target cannot be found.
+
+Default Boundary targets:
+
+| Profile | Local port | Boundary target name |
+|---|---:|---|
+| `main` | `32022` | `[RO] Elasticsearch MCP: k8s-core` |
+| `integrations` | `32012` | `[RO] Elasticsearch MCP: k8s-integrations` |
+| `dynamics` | `32002` | `[RO] Elasticsearch MCP: k8s-dynamic` |
+
+Optional override config can live at `~/.config/lvtv-elastic-logs/boundary.json` or the path in `LVTV_LOGS_BOUNDARY_CONFIG`:
+
+```json
+{
+  "profiles": {
+    "main": {
+      "target_id": "ttcp_...",
+      "name": "[RO] Elasticsearch MCP: k8s-core",
+      "port": 32022
+    }
+  }
+}
 ```
 
-Never print the token. Do not use `Bearer`; this MCP expects `ApiKey`.
+Use `LVTV_LOGS_BOUNDARY_AUTOSTART=0` to disable tunnel autostart for a single command. If autostart fails, report the error and the log path; do not fall back to external MCP URLs or tokens.
 
-Prefer the bundled helper:
+Prefer the bundled helper. Resolve the script path relative to this skill directory; do not hardcode a user-specific install path. For example, from the `lvtv-elastic-logs` skill directory:
 
 ```bash
-python3 ~/.codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile main list_indices '{"index_pattern":"*gateway*"}'
-python3 ~/.codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile integrations list_indices '{"index_pattern":"*searcher*"}'
-python3 ~/.codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile dynamics list_indices '{"index_pattern":"*dynamic*"}'
-python3 ~/.codex/skills/lvtv-elastic-logs/scripts/mcp_call.py --profile all find_index '{"index_pattern":"*unknown-fragment*"}'
+python3 scripts/mcp_call.py --profile main list_indices '{"index_pattern":"*gateway*"}'
+python3 scripts/mcp_call.py --profile integrations list_indices '{"index_pattern":"*searcher*"}'
+python3 scripts/mcp_call.py --profile dynamics list_indices '{"index_pattern":"*dynamic*"}'
+python3 scripts/mcp_call.py --profile all find_index '{"index_pattern":"*unknown-fragment*"}'
 ```
 
 ## Generic Workflow

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skills Syncer"
+  short_description: "Compare and sync local Codex skills"
+  default_prompt: "Use $skills-syncer to compare local Codex skills with the shared repository and plan synchronization."

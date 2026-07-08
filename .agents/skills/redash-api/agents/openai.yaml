@@ -1,0 +1,4 @@
+interface:
+  display_name: "Redash API"
+  short_description: "Run Redash API queries safely"
+  default_prompt: "Use $redash-api to run a Redash query and return the result summary."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "LevelTravel Agents Sync"
+  short_description: "Sync AGENTS and .agents safely"
+  default_prompt: "Use $leveltravel-agents-sync to safely mirror AGENTS.md and .agents into ../agents_md without damaging git metadata, then pull, commit, and push if the target repository is healthy."

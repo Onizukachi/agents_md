@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill Exporter"
+  short_description: "Prepare local Codex skills for repository export"
+  default_prompt: "Use $skill-exporter to sanitize and export a local Codex skill into a shared repository."

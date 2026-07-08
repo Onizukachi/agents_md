@@ -6,18 +6,36 @@
 - The app lets participants search, book, and purchase tours and hotels.
 - Business model: travel aggregator, not a tour operator.
 
-## 2) Core Principles
+## 2) Architectural Principles
 
 - Prefer Rails conventions over custom architecture.
 - Keep code simple, clear, and maintainable.
 - Use business/domain naming, not generic technical naming.
 - Keep responsibilities by layer:
-  - Models: data + small domain logic.
+  - Models: persistence, associations, validations, callbacks, and small domain behavior.
   - Controllers: HTTP only.
-  - Jobs: orchestration only.
-  - Services: complex business operations.
+  - Jobs: background execution, orchestration, and small job-specific logic.
+  - Services: complex business operations, reusable workflows, and external integrations.
 
-## 3) Operating Workflow
+## 3) Skill Routing
+
+- Use `.agents/skills/leveltravel-migrations` for Rails migration work.
+- Use `.agents/skills/leveltravel-tests` for CI-equivalent and focused test verification flows.
+- Use `.agents/skills/leveltravel-pr-workflow` for preparing, pushing, or opening regular pull requests.
+- Use `.agents/skills/leveltravel-pr-review` for the final read-only review gate before push or PR update.
+- Use `.agents/skills/leveltravel-hotfix-workflow` for production hotfixes that require paired `master` and `develop` PRs.
+- Use `.agents/skills/lvtv-elastic-logs` for production/staging/integration Elasticsearch log investigations.
+- Use `.agents/skills/yandex-tracker` for reading, creating, updating, or analyzing Tracker tasks.
+- Use `.agents/skills/redash-api` for Redash API access, saved query execution, and read-only ad-hoc SQL through Redash.
+- Use `.agents/skills/sentry-local` for investigating issues and events in the local LevelTravel Sentry.
+- Use `.agents/skills/leveltravel-frontend-asset-recovery` when frontend changes are not visible after reload and restart.
+- Use `.agents/skills/leveltravel-activeadmin-ui-check` for ActiveAdmin page checks and recovery flow.
+- Use `.agents/skills/leveltravel-agents-sync` for syncing `AGENTS.md` and `.agents/` into `../agents_md`.
+- Use `.agents/skills/skill-importer` for installing or updating shared Codex skills into the local skills directory.
+- Use `.agents/skills/skill-exporter` for exporting local Codex skills into a shared skills repository.
+- Use `.agents/skills/skills-syncer` for comparing and synchronizing local Codex skills with a shared skills repository.
+
+## 4) Operating Workflow
 
 ### LT CLI in shell session
 
@@ -25,56 +43,7 @@
 - Run LT commands through the loaded function (`lt logs rails`, `lt status`, `lt sh`, etc.).
 - For any interaction with Rails inside the container, first enter the Rails container with `lt sh`, then run the needed command there.
 
-### Debugging
-
-- Use `lt sh`, then run `bundle exec rails console` inside the Rails container for interactive debugging.
-- Use `binding.irb` for breakpoints in development.
-
-### Elastic logs
-
-- When the user asks to inspect production/staging/integration Elasticsearch logs (for example: `достань rails логи с прода`, `посмотри nginx логи`, `найди ошибки в searcher`), use the `.agents/skills/lvtv-elastic-logs` skill.
-- Choose the MCP profile by service family:
-  - `main` for rails, nginx, gateway, web-gateway, sidekiq, nextjs and most core app logs.
-  - `integrations` for search/integration pipeline services.
-  - `dynamics` for dynamic pricing/search logs.
-- For logs written through `Rails.application.config.x.logger`, first check `json.payload` in Elasticsearch.
-- If code writes a structured hash like `Rails.application.config.x.logger.info(tag: 'payment_router', ...)`, expect fields under `json.payload.*` and probe there before trying flattened keys.
-
-### When frontend changes are not visible
-
-If changes in JS, templates, or frontend I18n do not appear after a browser hard reload and service restart, refresh Rails/Sprockets assets inside the Rails container:
-
-```bash
-docker exec lt.rails sh -lc 'bundle exec rake tmp:cache:clear'
-docker exec lt.rails sh -lc 'RAILS_ENV=development bundle exec rails assets:precompile'
-source ./lt.sh
-lt restart rails && lt restart nginx
-```
-
-Use this when `manager/index.prod.js` or another compiled asset still contains old translations/code. Running cache cleanup on the host may not affect the asset cache served by `lt.rails`.
-
-### Documentation sync (mandatory)
-
-After every change to any of:
-- `AGENTS.md`
-- `.agents/**/*`
-
-Do all of the following:
-1. Mirror `AGENTS.md` and the whole `.agents/` directory into `../agents_md/`.
-2. Run `git pull` inside `../agents_md` before push.
-3. Commit and push mirrored changes in `../agents_md`.
-
-## 4) Tech Stack and Dependency Rules
-
-Current stack/gems:
-- Rails + Puma
-- ActiveRecord + MySQL (`mysql2`)
-- Sidekiq
-- RSpec (`rspec-rails`), `factory_bot_rails`, `faker`
-- `rubocop`, `prettier` (for JS if present)
-- `active_admin`
-- `sentry-rails` (optional)
-- HTTP: `Typhoeus` via `ExternalRequest`
+## 5) Dependency And HTTP Policy
 
 Dependency policy:
 - Do not add new gems without explicit approval.
@@ -84,21 +53,14 @@ HTTP policy:
 - Use `ExternalRequest` as wrapper around `Typhoeus`.
 - Do not introduce `Faraday` or `RestClient`.
 
-## 5) File Placement
+## 6) File Placement
 
 - `app/admin/`: ActiveAdmin resources/controllers
-- `app/controllers/`: web/API controllers
-- `app/services/`: domain/application services
 - `app/apis/`: external integrations (payments/fiscal/etc.)
-- `app/models/`: ActiveRecord models
 - `app/query/`: read-only query objects
-- `app/serializers/`: API serialization
 - `app/decorators/`: presentation formatting
-- `app/helpers/`: view helpers only
-- `app/mailers/`: mail delivery logic
-- `app/uploaders/`: CarrierWave uploaders
 
-## 6) Naming and Organization Conventions
+## 7) Modeling And Conventions
 
 ### Naming
 
@@ -129,10 +91,9 @@ enum :state, %w(uploaded analyzing analyzed generating generated failed).index_w
 
 ### Controller constraints
 
-- Target: 5-15 lines per action.
+- Keep controllers thin and focused on HTTP concerns.
 - Use guard clauses and early returns.
 - Keep business logic out of controllers.
-- Use namespaced base controllers for shared scoping/auth.
 
 ### Service extraction rules
 
@@ -142,30 +103,17 @@ Extract to namespaced services (e.g. `Clouds::CardGenerator`) when logic is:
 - reused,
 - or too large for a model/controller method.
 
-## 7) Data and Migrations
-
 ### Data modeling
 
 - Normalize tables: one concern per table.
-- Index foreign keys and frequently filtered columns.
+- Index reference-like columns and frequently filtered columns.
 - Add composite indexes for common query patterns.
 
-### Migration workflow
-
-Do not create migration files manually.
-1. Generate migrations only through Rails generator inside the Rails container: `source ./lt.sh`, then `lt sh`, then `bundle exec rails generate migration ...`.
-2. Apply migrations inside the Rails container: `source ./lt.sh`, then `lt sh`, then `bundle exec rails db:migrate`.
-3. If needed, verify rollback path inside the Rails container: `bundle exec rails db:rollback STEP=1`, then `bundle exec rails db:migrate`.
-4. Run any other Rails migration-related commands from inside `lt sh`.
-5. Keep `db/schema.rb` limited to relevant changes.
-6. Keep `ActiveRecord::Schema.define(version: ...)` aligned with latest applied migration.
-7. For reference columns in migrations, do not use database foreign keys. Prefer `t.references :model_name, null: false, index: { name: 'custom_index_name' }`.
-8. For reference-based lookup tables, add explicit composite indexes for the common date/filter access pattern when needed (for example `[:model_id, :start_date]` and `[:model_id, :end_date]`).
-9. After updating schema, run `bundle exec rails db:test:load` inside the Rails container to verify the test database loads the current schema without errors.
+For any work with Rails migrations, use the `.agents/skills/leveltravel-migrations` skill.
 
 ## 8) Job Rules
 
-- Jobs orchestrate workflow; heavy logic belongs in services.
+- Jobs handle background execution, orchestration, retries, and small job-specific logic; heavy reusable logic belongs in services.
 - Handle errors explicitly:
   - rescue,
   - report (Sentry where used),
@@ -206,74 +154,43 @@ Do not create migration files manually.
 6. custom actions: `member_action`, `collection_action`
 7. `controller do ... end`
 
-### UI testing flow (MCP)
+## 13) Testing Guidance
 
-1. Start logs: `lt logs rails`.
-2. Open target page directly (example: `https://leveltravel.dev/admin/payment_logs`).
-3. If auth required, click `Войти` (credentials are prefilled).
-4. If `502 Bad Gateway`, reload and wait up to 20 seconds.
-5. If page is still unavailable after 20 seconds, restart services:
-   - `lt restart rails && lt restart nginx`
-6. Reload the page again and wait up to 20 seconds.
-7. If it still fails after restart, treat it as an application error and use Rails logs to diagnose/fix.
+- Use `.agents/skills/leveltravel-tests` for test-running workflows.
+- Before local test commands through the project environment, run `source ./lt.sh`.
+- Prefer `let_it_be` or `let_it_be_with_reload` when they improve suite speed and clarity.
 
-## 13) Testing Rules
-
-- Use RSpec (not minitest).
-- Do not use the `leveltravel-tests` skill. Run required test commands directly in the repository shell.
-- Pre-review minimum: run tests only for changed files/changed behavior.
-- Prefer focused runs:
-
-```bash
-bin/rspec spec/models/some_model_spec.rb
-bin/rspec spec/models/some_model_spec.rb:25
-```
-
-- Use `let_it_be` / `let_it_be_with_reload` when it improves suite speed.
-- Test:
-  - validations,
-  - business logic,
-  - controller HTTP behavior.
-- Do not spend effort on testing trivial framework behavior.
-
-## 14) Routing
-
-- Prefer RESTful routes.
-- Use namespaces/scopes for logical and auth boundaries (participant/admin/webhooks).
-
-## 15) Feature Flags
+## 14) Feature Flags
 
 - Current baseline flags: `use_advanced_receipts`, `new_payments_architecture`.
 - These two flags are currently legacy and must be treated as always `true`.
 - Until removed, do not implement or rely on `false` behavior for these two flags.
 
-## 16) Payments
+## 15) Payments
 
 - For order/payment/callback/receipt flows, follow: `.agents/docs/payments.md`.
 
-## 17) PAPI v3 Documentation
+## 16) PAPI v3 Documentation
 
 - For any added/changed PAPI v3 route or contract, update docs using: `.agents/docs/papi_v3_docs.md`.
 - Keep PAPI v3 docs in sync in the same PR as code changes.
 
-## 18) Definition of Done
+## 17) Definition of Done
 
 ### MUST
 
-- Domain naming is consistent with business terms.
-- Layering is respected (controller/job/model/service responsibilities).
-- State columns use enums with string-backed mapping.
-- Complex logic is extracted to namespaced services.
-- I18n keys are used for AR errors/attributes/model names.
-- `app/admin/*.rb` follows the agreed block order.
 - Required migrations are applied and schema changes are clean/relevant.
-- Tests related to changed files/changed behavior pass locally.
+- Tests related to changed files or changed behavior pass locally.
+- PAPI v3 docs are updated when routes or contracts change.
+- `AGENTS.md` and `.agents/` changes are synced via `.agents/skills/leveltravel-agents-sync`.
 
 ### SHOULD
 
+- `app/admin/*.rb` follows the agreed block order.
 - Controllers stay thin with clear guard clauses.
 - Queries remain composable/readable; no view-level complex filtering.
 - N+1 risks are handled with eager loading.
 - New indexes are added where query patterns require them.
+- I18n keys are used for AR errors/attributes/model names.
 
 If all MUST items are satisfied, the change is ready for review.

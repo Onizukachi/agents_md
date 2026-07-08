@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sentry Local"
+  short_description: "Inspect local Sentry issues and events"
+  default_prompt: "Use $sentry-local to investigate a Sentry issue or error spike in the local LevelTravel Sentry."

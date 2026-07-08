@@ -1,0 +1,4 @@
+interface:
+  display_name: "LevelTravel Migrations"
+  short_description: "Run LevelTravel Rails migrations safely"
+  default_prompt: "Use $leveltravel-migrations to generate, run, roll back, or verify Rails migrations in this LevelTravel repository."

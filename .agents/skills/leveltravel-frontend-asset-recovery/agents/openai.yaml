@@ -1,0 +1,4 @@
+interface:
+  display_name: "LevelTravel Frontend Asset Recovery"
+  short_description: "Recover stale Rails frontend assets"
+  default_prompt: "Use $leveltravel-frontend-asset-recovery when LevelTravel frontend JS, templates, or I18n changes are not visible after reloads and service restarts."

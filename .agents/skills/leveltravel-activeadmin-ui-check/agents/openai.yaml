@@ -1,0 +1,4 @@
+interface:
+  display_name: "LevelTravel ActiveAdmin UI Check"
+  short_description: "Check and recover ActiveAdmin UI pages"
+  default_prompt: "Use $leveltravel-activeadmin-ui-check to open, recover, and diagnose LevelTravel ActiveAdmin pages that may require login, reloads, restarts, and Rails logs."
