@@ -71,7 +71,6 @@ HTTP policy:
 ### Naming
 
 - Use domain names (`Participant`, `Cloud`, etc.), not technical placeholders (`User`, `GeneratedImage`, etc.).
-- Models must inherit from `ApplicationRecord`.
 
 ### Model structure order
 
@@ -140,7 +139,6 @@ For any work with Rails migrations, use the `.agents/skills/leveltravel-migratio
   - `activerecord.errors.models`
   - `activerecord.attributes`
   - `activerecord.models`
-- When adding a new model or new persisted fields, add at least draft Russian translations for the model name and its attributes in `config/locales/ru.yml`.
 - Custom I18n keys are allowed (and preferred) for business/UI texts that are not model metadata.
 - Avoid hardcoded Russian strings in reusable user-facing messages.
 
