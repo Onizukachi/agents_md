@@ -1,71 +1,88 @@
 ---
 name: leveltravel-agents-sync
-description: Use when AGENTS.md or anything under .agents/ changes in the LevelTravel repository and those updates must be mirrored into ../agents_md. Covers the safe mirror workflow, git-repository health checks, and the required pull, commit, and push sequence without damaging ../agents_md git metadata.
+description: Synchronize the LevelTravel project's Git-tracked agent skills with origin/develop and its local AGENTS.md, docs, tasks, and private skills with the adjacent agents_md repository. Use when importing the agent mirror on a workstation, publishing local agent material to the mirror, checking synchronization, or changing AGENTS.md or anything under .agents/.
 ---
 
 # LevelTravel Agents Sync
 
-Use this skill whenever `AGENTS.md` or `.agents/**/*` changes and the documentation mirror at `../agents_md` must be updated.
+Use `scripts/agents_sync.sh`; do not reproduce the sync with broad manual `rsync` commands.
 
-This skill governs sync only. Do not change application code merely because this skill loaded.
+## Ownership
+
+Treat `origin/develop` as authoritative for exactly these skills:
+
+- `leveltravel-hotfix-workflow`
+- `leveltravel-pr-review`
+- `leveltravel-pr-workflow`
+- `leveltravel-tests`
+
+Treat `agents_md` as authoritative for:
+
+- `AGENTS.md`
+- `.agents/docs/`
+- `.agents/tasks/`
+- every other directory under `.agents/skills/`
+
+Never import mirror copies of develop-owned skills into the project.
+
+## Local Excludes
+
+Configure `.git/info/exclude` on every workstation:
+
+```gitignore
+/AGENTS.md
+/.agents/docs/
+/.agents/tasks/
+/.agents/skills/*
+!/.agents/skills/leveltravel-hotfix-workflow/
+!/.agents/skills/leveltravel-pr-review/
+!/.agents/skills/leveltravel-pr-workflow/
+!/.agents/skills/leveltravel-tests/
+```
+
+The script refuses to run if private paths are visible to Git or develop-owned skill paths are ignored.
+
+## Commands
+
+Run from the LevelTravel repository:
+
+```bash
+sync_script='.agents/skills/leveltravel-agents-sync/scripts/agents_sync.sh'
+"$sync_script" pull "$PWD" ../agents_md
+"$sync_script" check "$PWD" ../agents_md
+"$sync_script" publish "$PWD" ../agents_md "Sync LevelTravel agent files"
+```
+
+Use `pull` when installing or refreshing mirror-owned files. It:
+
+- requires a clean mirror and performs `git pull --ff-only`;
+- replaces only mirror-owned paths;
+- deletes stale mirror-owned files locally;
+- verifies that tracked project state did not change.
+
+Use `publish` only when the user asks to update or push the mirror. It:
+
+- updates the mirror with `git pull --ff-only`;
+- fetches `origin/develop`;
+- exports the four develop-owned skills from `origin/develop`, never from the current branch;
+- copies mirror-owned material from the project;
+- validates, commits, and pushes only when the mirror changed.
+
+Use `check` for a read-only comparison. It does not fetch or pull; report that its develop comparison uses the existing local `origin/develop`.
+
+For first-time installation, invoke the script from the mirror:
+
+```bash
+../agents_md/.agents/skills/leveltravel-agents-sync/scripts/agents_sync.sh \
+  pull "$PWD" ../agents_md
+```
 
 ## Guardrails
 
-Protect the target repository:
+- Never delete or overwrite `../agents_md/.git`.
+- Never use `--delete` at the mirror repository root.
+- Stop if the mirror is dirty or `git pull --ff-only` fails.
+- Do not change application code.
+- Do not commit or push the LevelTravel repository as part of this workflow.
 
-- never delete or overwrite `../agents_md/.git`;
-- never copy nested git metadata from the source `.agents/.git` into the mirror;
-- never use destructive root-level sync that can remove destination-only git metadata;
-- mirror only `AGENTS.md` and `.agents/`;
-- if `../agents_md` is not a git repository, stop and report that state before attempting `git pull`, commit, or push.
-
-## Verify The Target
-
-Before any sync, confirm the target exists and still has git metadata:
-
-```bash
-test -d ../agents_md
-test -e ../agents_md/.git
-git -C ../agents_md status --short --branch
-```
-
-If any of these checks fails, stop and report the exact problem.
-
-## Mirror Files Safely
-
-Mirror only the intended content:
-
-```bash
-rsync -a AGENTS.md ../agents_md/
-mkdir -p ../agents_md/.agents
-rsync -a --exclude='.git' .agents/ ../agents_md/.agents/
-```
-
-Do not use `--delete` against the root of `../agents_md`.
-
-The destination may contain git metadata or other repository-only files that must survive the mirror.
-
-The source `.agents/` may itself be a git repository. Always exclude its nested `.git` directory from the mirror copy.
-
-## Git Sync Sequence
-
-Only after the target passes the git checks:
-
-```bash
-git -C ../agents_md pull --ff-only
-git -C ../agents_md status --short
-git -C ../agents_md add AGENTS.md .agents
-git -C ../agents_md commit -m "<concise message>"
-git -C ../agents_md push
-```
-
-If `git pull --ff-only` fails because of divergence or unrelated local changes, stop and report it instead of forcing through.
-
-## Reporting
-
-When summarizing the sync:
-
-- say what was mirrored;
-- say whether the target repository passed the git health checks;
-- say whether `pull`, commit, and push completed or were blocked;
-- if blocked, include the exact blocking condition.
+Report the command used, the source revision for develop-owned skills, whether tracked project state stayed unchanged, and whether the mirror commit and push completed.
