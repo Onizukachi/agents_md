@@ -1,20 +1,31 @@
 ---
 name: leveltravel-tests
-description: Run LevelTravel tests using the same Docker RSpec flow as the TeamCity rails-rspec PR build. Use when verifying Rails changes, preparing a PR, checking CI-equivalent RSpec, or running focused development specs without confusing them with the PR gate.
+description: Run LevelTravel Rails tests with the repository local Docker gate, selecting native ARM64 on Apple Silicon or the TeamCity-compatible amd64 helper on x86_64, and report local evidence separately from the authoritative remote TeamCity rails-rspec gate.
 ---
 
 # LevelTravel Tests
 
 Use this skill whenever running or reporting test verification for this repository.
 
-The authoritative PR gate is the TeamCity `rails-rspec` Docker flow. Host-side `bundle exec rspec` can be useful for fast feedback, but it is not equivalent to CI.
+The repository local full-test entry point is:
+
+```bash
+bash .agents/skills/leveltravel-tests/scripts/local_rspec.sh
+```
+
+It selects the supported local path for the host architecture:
+
+- Apple Silicon (`arm64`): native ARM64 Docker RSpec as the broad local gate. It exercises the full Rails test flow, but it is not byte-for-byte TeamCity-equivalent.
+- x86_64: the canonical amd64 helper that reproduces the TeamCity Docker RSpec shape.
+
+The remote TeamCity `rails-rspec` build remains the authoritative amd64 parity gate and must pass before merge.
 
 ## Confirm The Workspace
 
 Before running tests, confirm these files exist:
 
 - `docker-compose-integration.yml`
-- `lib/build/app/integration.Dockerfile`
+- `lib/build/app/integration.Dockerfile` (the canonical TeamCity build source)
 - `script/ci/ci.sh`
 - `Gemfile`
 
@@ -24,129 +35,97 @@ Inspect the workspace:
 git status --short --branch
 ```
 
-Do not print secret values. It is fine to say whether required environment variables are present.
+Do not print secret values. It is fine to report whether a usable credential was found and where it came from, without printing the credential itself.
 
-## TeamCity PR Build Shape
+## Credentials And Preflight
 
-The TeamCity PR build runs these phases:
+The helpers need a GitHub token with access to `LevelTravel/proto` during `bundle install`. They resolve it in this order:
 
-1. Check for breaking changes marker.
-2. Create the Docker network.
-3. Start MySQL and Redis from `docker-compose-integration.yml`.
-4. Build `lib/build/app/integration.Dockerfile` as `integration:%build.number%`.
-5. Run the image on the worker network with:
-   - `REDIS_HOST=%env.WORKER_NAME%.redis-ci`
-   - `MYSQL_HOST=%env.WORKER_NAME%.mysql-ci`
-   - `/opt/buildagent/temp/buildTmp/.teamcity` mounted at `/temp`
-6. Always stop the test container, remove the integration image, stop compose services, and prune CI containers and volumes.
+1. an existing non-empty `PROTO_REPO_TOKEN` environment variable;
+2. `gh auth token`, when the GitHub CLI is authenticated.
 
-Inside the image, `TEAMCITY_CI=1` is set by `integration.Dockerfile`, and `script/ci/ci.sh` runs `parallel_rspec` with TeamCity runtime logs.
+Do not interpolate the token into a command shown in logs. The Docker build must receive it as a BuildKit secret, not a build argument.
 
-## Required Inputs
+Treat both local paths as requiring private base images from `cr.yandex`. If Docker reports an authorization error, stop and ask the developer to run the repository-standard login flow:
 
-For a CI-equivalent local run, Docker must be available and this environment variable must be set:
+```bash
+lt login
+```
 
-- `PROTO_REPO_TOKEN`: used during Docker build as `BUNDLE_GITHUB__COM`.
+Do not run this command automatically because it starts the approved Google/Boundary login flow and updates local Docker credentials. If `lt login` is unavailable or access is denied, report the local gate as `BLOCKED` and request approved registry access. Do not suggest `yc container registry configure-docker` as the default remediation; do not assume developers have direct Yandex Cloud IAM access.
+
+Before expensive work, the entry point should fail fast when Docker is unavailable, the host architecture is unsupported, credentials are missing, or required images cannot be used for the selected platform.
 
 Optional environment variables:
 
-- `BUILD_NUMBER`: image tag and container suffix. Defaults to a timestamped local value in the helper script.
-- `WORKER_NAME`: compose container prefix. Defaults to a sanitized local value in the helper script.
-- `WORKER_NETWORK`: Docker network name. Defaults to `${WORKER_NAME}-integration`.
-- `DOCKER_REGISTRY`: passed to Docker build as `ECR_REPO`. Defaults to `cr.yandex/crp2b4c44b0t0smqf2nj`, the registry that contains `rails-builder-test`.
-- `DOCKER_DEFAULT_PLATFORM`: Docker platform for compose and build. Defaults to `linux/amd64`, matching TeamCity agents and avoiding Apple Silicon arm64 image mismatches.
-- `BREAKING_CHANGES`: when set, the helper script checks that the referenced file exists.
-- `RUNTIME_LOG_DIR`: host directory mounted to `/temp`. Defaults to `tmp/teamcity`.
-- `PRUNE_VOLUMES=true`: match TeamCity's final `docker volume prune -f -a`. Defaults to `false` locally to avoid deleting unrelated developer volumes.
+- `BUILD_NUMBER`: diagnostic label used in generated resource names. The helper adds a per-run suffix so concurrent tasks remain isolated.
+- `WORKER_NAME`: base for Docker resource names. The helper still derives unique names for the current run.
+- `LOCAL_RSPEC_ARCH`: override architecture selection for diagnostics. By default the entry point uses `uname -m` and corrects translated macOS shells through `sysctl.proc_translated`; `arm64` and `aarch64` select the native helper, while `x86_64` and `amd64` select the canonical helper.
+- `DOCKER_REGISTRY`: registry that contains the canonical `rails-builder-test` image.
+- `DEV_RAILS_IMAGE`: native ARM64 Ruby/Rails base image override.
+- `MYSQL_IMAGE` and `REDIS_IMAGE`: source image overrides; helpers pull the selected platform and copy it to architecture-specific local tags before Compose starts.
+- `BUNDLE_JOBS`: Bundler parallelism for the native ARM64 image build.
+- `BREAKING_CHANGES`: when set, the helper checks that the referenced file exists.
+- `RUNTIME_LOG_DIR`: host directory mounted to `/temp`. Defaults to a run-scoped directory under `tmp/teamcity` on amd64 or `tmp/teamcity-arm64` on ARM64.
 
-If private Yandex registry pulls fail locally, configure Docker credentials with:
+Do not add a global Docker prune flag. Local cleanup must be scoped to resources created by the current run.
+
+## Local Full Gate
+
+Run the architecture-aware entry point:
 
 ```bash
-yc container registry configure-docker
+bash .agents/skills/leveltravel-tests/scripts/local_rspec.sh
 ```
 
-Before a CI-equivalent run, ensure the runtime log exists because `script/ci/ci.sh` copies `/temp/parallel_runtime_rspec.log` when `TEAMCITY_CI=1`:
+After editing any local gate helper, run its deterministic orchestration checks before the full gate:
 
 ```bash
-mkdir -p tmp/teamcity
-touch tmp/teamcity/parallel_runtime_rspec.log
+bash .agents/skills/leveltravel-tests/scripts/test_local_rspec_tooling.sh
 ```
 
-## Canonical CI-Equivalent Command
+Both helpers serialize LevelTravel full local runs with a machine-wide lock, including when a helper is invoked directly, so two tasks cannot overload Docker or interfere with one another. If another full gate already owns the lock, report that state instead of starting a second run.
 
-Prefer the repository skill helper:
+On Apple Silicon it delegates to:
+
+```bash
+bash .agents/skills/leveltravel-tests/scripts/native_arm64_rspec.sh
+```
+
+This path uses native ARM64 dependencies and runs the repository test script without QEMU. It is the required broad local gate on M-chip machines, but it is not TeamCity-equivalent because the remote build uses amd64 images and agents.
+
+On x86_64 the entry point delegates to:
 
 ```bash
 bash .agents/skills/leveltravel-tests/scripts/teamcity_rspec.sh
 ```
 
-For exact TeamCity-style local cleanup, opt in to volume pruning:
+This is the local TeamCity-compatible path.
+
+Derive the amd64 helper's temporary secret-safe Dockerfile from `lib/build/app/integration.Dockerfile`. Change only the GitHub credential transport from build arguments to a BuildKit secret. Fail closed when the canonical credential stanza changes so the local helper cannot silently drift from TeamCity.
+
+## Canonical amd64 Diagnostic
+
+To investigate amd64 parity explicitly, run the canonical helper directly:
 
 ```bash
-PRUNE_VOLUMES=true bash .agents/skills/leveltravel-tests/scripts/teamcity_rspec.sh
+bash .agents/skills/leveltravel-tests/scripts/teamcity_rspec.sh
 ```
 
-The helper follows the TeamCity steps and preserves the safer local default of not pruning volumes unless explicitly requested.
+On Apple Silicon this is diagnostic only. It uses amd64 emulation and may stall in `bundle install`, database preparation, or `parallel_rspec`; such a stall is a local emulation blocker, not a product-code or test failure. Do not replace a successful native ARM64 gate with a required local QEMU run.
 
-On Apple Silicon, this runs the CI amd64 image through emulation. If `parallel:create` or `parallel_rspec` makes no progress for a long time while `qemu-x86_64` processes consume CPU, report it as a local emulation blocker rather than a code failure.
+## Resource Isolation And Cleanup
 
-## Native Apple Silicon Command
+Each helper invocation must use a unique Compose project, container names, image tag, runtime-log directory, and Docker network. Concurrent Codex tasks must not share or tear down each other's services.
 
-For local M-chip verification, use the native arm64 helper:
+On success, failure, interruption, or signal, cleanup must remove only resources created by that invocation:
 
-```bash
-PROTO_REPO_TOKEN="$(gh auth token)" bash .agents/skills/leveltravel-tests/scripts/native_arm64_rspec.sh
-```
+- the run-scoped test container and integration image;
+- the run-scoped Compose project, including its anonymous MySQL volume, via `down -v --remove-orphans`;
+- the exact external network created for the run;
+- the run-scoped temporary Dockerfile and Compose override. Runtime logs stay in their run-scoped directory for diagnostics.
 
-This is not byte-for-byte TeamCity. TeamCity's `rails-builder-test` base image and `mysql:8.0.22` are amd64-only, so the helper builds from the arm64-capable `dev-rails:2025-04` image and overrides compose to use `mysql:8.0` plus `redis:latest`.
-
-Use this mode when the amd64 TeamCity-compatible flow is blocked by Apple Silicon emulation. Report it separately from the canonical CI-equivalent gate.
-
-## Manual TeamCity Commands
-
-Use these commands when the helper is unavailable or when reproducing CI step by step:
-
-```bash
-export DOCKER_DEFAULT_PLATFORM="${DOCKER_DEFAULT_PLATFORM:-linux/amd64}"
-export DOCKER_REGISTRY="${DOCKER_REGISTRY:-cr.yandex/crp2b4c44b0t0smqf2nj}"
-
-docker network create "$WORKER_NETWORK" || true
-
-WORKER_NAME="$WORKER_NAME" WORKER_NETWORK="$WORKER_NETWORK" \
-  docker compose -f docker-compose-integration.yml \
-  -p "${WORKER_NAME}-integration" \
-  up --remove-orphans -d
-
-docker build -f ./lib/build/app/integration.Dockerfile . \
-  -t "integration:${BUILD_NUMBER}" \
-  --build-arg "PROTO_REPO_TOKEN=${PROTO_REPO_TOKEN}" \
-  --build-arg "ECR_REPO=${DOCKER_REGISTRY}"
-
-docker run \
-  -v "$(pwd)/tmp/teamcity:/temp" \
-  --network="${WORKER_NETWORK}" \
-  --name="rspec_${BUILD_NUMBER}" \
-  --rm \
-  -e "REDIS_HOST=${WORKER_NAME}.redis-ci" \
-  -e "MYSQL_HOST=${WORKER_NAME}.mysql-ci" \
-  "integration:${BUILD_NUMBER}"
-```
-
-Always clean up:
-
-```bash
-docker stop "rspec_${BUILD_NUMBER}" || true
-docker rmi --force "integration:${BUILD_NUMBER}" || true
-WORKER_NAME="$WORKER_NAME" WORKER_NETWORK="$WORKER_NETWORK" \
-  docker compose -f docker-compose-integration.yml -p "${WORKER_NAME}-integration" down
-docker container prune -f
-```
-
-Only run this final command when CI-equivalent destructive cleanup is explicitly acceptable:
-
-```bash
-docker volume prune -f -a
-```
+Never use `docker container prune`, `docker volume prune`, or another global cleanup command as part of the test helper. Historical Docker debris should be inspected and cleaned separately with explicit user approval.
 
 ## Focused Development Specs
 
@@ -154,24 +133,34 @@ For quick local feedback, focused host-side specs are acceptable when the local 
 
 ```bash
 bundle exec rspec spec/path/to/spec.rb
-FILES_TO_RUN=spec/path/to/spec.rb bash script/ci/ci.sh
 ```
 
 Reporting rules:
 
-- Label these as focused or host-side checks.
-- Do not call them CI-equivalent.
-- If local Ruby cannot boot because of environment or native dependency issues, report the exact boot blocker.
+- label these as focused or host-side checks;
+- do not call them a full local gate or CI-equivalent;
+- if local Ruby cannot boot because of environment or native dependency issues, report the exact boot blocker.
 
-## Reporting
+Do not use `FILES_TO_RUN=... bash script/ci/ci.sh` as evidence of a focused CI run while `TEAMCITY_CI=1`; the CI path can ignore `FILES_TO_RUN` and execute the full suite.
 
-When summarizing tests, include exact commands and outcomes:
+## Exact Reporting Semantics
+
+Always include the exact command and observed outcome. Use one of these labels:
 
 ```markdown
 ## Tests
-- PASS: `bash .agents/skills/leveltravel-tests/scripts/teamcity_rspec.sh`
-- PASS: `bundle exec rspec spec/path/to/spec.rb`
-- BLOCKED: `bash .agents/skills/leveltravel-tests/scripts/teamcity_rspec.sh` - missing `PROTO_REPO_TOKEN`
+- PASS local full ARM64 gate (not TeamCity-equivalent): `bash .agents/skills/leveltravel-tests/scripts/local_rspec.sh`
+- PASS local TeamCity-compatible amd64 gate: `bash .agents/skills/leveltravel-tests/scripts/local_rspec.sh`
+- PASS remote authoritative amd64 gate: TeamCity `rails-rspec` <build URL>
+- PASS focused check: `bundle exec rspec spec/path/to/spec.rb`
+- FAIL product/test: `<exact command>` - <failing example or application error>
+- BLOCKED local infrastructure: `<exact command>` - <credential, Docker, registry, platform, or emulation blocker>
+- PENDING remote authoritative amd64 gate: TeamCity `rails-rspec`
 ```
 
-If the TeamCity-compatible gate was not run, say why. Do not let a focused command imply full PR readiness.
+Rules:
+
+- Never describe the native ARM64 run as TeamCity-equivalent or amd64 parity.
+- Never describe an emulation, registry, Docker, disk, or credential blocker as a test failure.
+- Never let a focused check imply that the full local gate passed.
+- PR creation may proceed after the appropriate local gate and review pass, but the PR is not merge-ready until remote TeamCity `rails-rspec` passes.

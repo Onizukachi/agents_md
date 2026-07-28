@@ -1,6 +1,6 @@
 ---
 name: leveltravel-pr-workflow
-description: Use when creating, updating, pushing, or opening a pull request in the LevelTravel Rails repository. Handles fresh develop workflow, GitFlow branch naming, TeamCity-compatible test gate, read-only PR review, GitHub push, and ready PR creation.
+description: Use when creating, updating, pushing, or opening a pull request in the LevelTravel Rails repository. Handles fresh develop workflow, GitFlow branch naming, architecture-aware local testing, read-only PR review, GitHub push, ready PR creation, and the authoritative remote TeamCity gate before merge.
 ---
 
 # LevelTravel PR Workflow
@@ -65,11 +65,16 @@ Before push or PR creation, use `$leveltravel-tests`.
 
 Strict policy:
 
-- The authoritative PR gate is the TeamCity-compatible Docker RSpec flow.
-- Focused host-side commands are useful during development, but they do not replace the PR gate.
-- If Docker, registry credentials, `PROTO_REPO_TOKEN`, or other CI-equivalent inputs are unavailable, state that explicitly in the PR body and include every partial command that did run.
-- If the full gate fails for a product or test regression, fix it before push or PR.
-- If the full gate cannot run because local infrastructure is unavailable, do not claim the branch is fully verified.
+- Run the repository local full-test entry point: `bash .agents/skills/leveltravel-tests/scripts/local_rspec.sh`.
+- On Apple Silicon, native ARM64 Docker RSpec is the required broad local gate. Report it explicitly as not TeamCity-equivalent.
+- On x86_64, the entry point runs the canonical local TeamCity-compatible amd64 helper.
+- Focused host-side commands are useful during development, but they do not replace the architecture-appropriate local full gate.
+- If Docker, registry access, credentials, or another local input is unavailable, state that explicitly in the PR body and include every partial command that did run.
+- If the local full gate finds a product or test regression, fix it before push or PR creation.
+- If the local full gate is blocked by infrastructure, do not claim the branch is fully locally verified.
+- Do not require the canonical amd64 helper through QEMU on Apple Silicon. It is available as an explicit diagnostic command only: `bash .agents/skills/leveltravel-tests/scripts/teamcity_rspec.sh`.
+
+The remote TeamCity `rails-rspec` build is the authoritative amd64 parity gate. It runs after the PR is opened and must pass before merge. A native ARM64 pass is strong local evidence, but it never substitutes for this remote result.
 
 ## Required Review Gate
 
@@ -88,7 +93,7 @@ If subagent review is unavailable, state that in the PR body. Do not describe a 
 
 ## Push And PR
 
-After the workspace guard, test gate, and review gate are complete:
+After the workspace guard, local test gate, and review gate are complete:
 
 ```bash
 git push -u origin <branch>
@@ -102,6 +107,8 @@ gh pr create --base develop --head <branch> --title "<title>" --body-file <body-
 
 Prefer `--body-file` over inline bodies to avoid shell quoting problems. Do not create a draft PR unless the user asked for a draft or a required external dependency prevents ready review.
 
+After PR creation, inspect the remote TeamCity `rails-rspec` result. Keep the PR open and report it as pending or blocked until that authoritative amd64 parity gate passes. Do not merge, or report the PR as merge-ready, while it is pending or failing.
+
 ## PR Body
 
 Every PR body should include:
@@ -114,8 +121,10 @@ Every PR body should include:
 - ...
 
 ## Tests
-- PASS: `<exact command>`
-- BLOCKED: `<exact command>` - <reason>
+- PASS local full ARM64 gate (not TeamCity-equivalent): `<exact command>`
+- PASS local TeamCity-compatible amd64 gate: `<exact command>`
+- BLOCKED local infrastructure: `<exact command>` - <reason>
+- PENDING remote authoritative amd64 gate: TeamCity `rails-rspec`
 
 ## Review
 - PASS: `leveltravel-pr-review` completed against `origin/develop`
@@ -132,5 +141,7 @@ Rules:
 - Mention behavior changed, not only filenames.
 - List exact test commands and real results.
 - Include local infrastructure blockers honestly.
+- On Apple Silicon, never label the native ARM64 result as TeamCity-equivalent or amd64 parity.
+- After TeamCity finishes, update the PR test status to `PASS remote authoritative amd64 gate` with its build URL, or report the exact failure.
 - Call out migrations, background jobs, data backfills, scheduled tasks, external service calls, and rollout risks.
 - If the PR updates an existing open PR, update the body so the latest tests and review status remain accurate.
