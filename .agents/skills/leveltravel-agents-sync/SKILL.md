@@ -1,6 +1,6 @@
 ---
 name: leveltravel-agents-sync
-description: Synchronize the LevelTravel project's Git-tracked agent skills with origin/develop and its local AGENTS.md, docs, tasks, and private skills with the adjacent agents_md repository. Use when importing the agent mirror on a workstation, publishing local agent material to the mirror, checking synchronization, or changing AGENTS.md or anything under .agents/.
+description: Synchronize the LevelTravel project's Git-tracked agent skills with origin/develop and its local AGENTS.md, CLAUDE.md, docs, tasks, and private skills with the adjacent agents_md repository. Use when importing the agent mirror on a workstation, publishing local agent material to the mirror, checking synchronization, or changing AGENTS.md, CLAUDE.md, or anything under .agents/.
 ---
 
 # LevelTravel Agents Sync
@@ -19,6 +19,7 @@ Treat `origin/develop` as authoritative for exactly these skills:
 Treat `agents_md` as authoritative for:
 
 - `AGENTS.md`
+- `CLAUDE.md`
 - `.agents/docs/`
 - `.agents/tasks/`
 - every other directory under `.agents/skills/`
@@ -31,6 +32,7 @@ Configure `.git/info/exclude` on every workstation:
 
 ```gitignore
 /AGENTS.md
+/CLAUDE.md
 /.agents/docs/
 /.agents/tasks/
 /.agents/skills/*

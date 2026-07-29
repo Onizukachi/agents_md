@@ -8,6 +8,10 @@ PROJECT_SKILLS=(
   'leveltravel-pr-workflow'
   'leveltravel-tests'
 )
+OVERLAY_FILES=(
+  'AGENTS.md'
+  'CLAUDE.md'
+)
 SNAPSHOT_ROOT=''
 
 cleanup_snapshot() {
@@ -66,8 +70,12 @@ assert_mirror_clean() {
 }
 
 assert_project_excludes() {
-  git -C "$PROJECT_ROOT" check-ignore -q --no-index -- AGENTS.md ||
-    die "AGENTS.md is not ignored; configure .git/info/exclude first"
+  local overlay_file
+
+  for overlay_file in "${OVERLAY_FILES[@]}"; do
+    git -C "$PROJECT_ROOT" check-ignore -q --no-index -- "$overlay_file" ||
+      die "$overlay_file is not ignored; configure .git/info/exclude first"
+  done
   git -C "$PROJECT_ROOT" check-ignore -q --no-index -- .agents/tasks/.agents-sync-probe ||
     die ".agents/tasks is not ignored; configure .git/info/exclude first"
   git -C "$PROJECT_ROOT" check-ignore -q --no-index -- .agents/docs/.agents-sync-probe ||
@@ -84,8 +92,11 @@ assert_project_excludes() {
 
 require_overlay_source() {
   local root="$1"
+  local overlay_file
 
-  test -f "$root/AGENTS.md" || die "missing AGENTS.md in $root"
+  for overlay_file in "${OVERLAY_FILES[@]}"; do
+    test -f "$root/$overlay_file" || die "missing $overlay_file in $root"
+  done
   test -d "$root/.agents/docs" || die "missing .agents/docs in $root"
   test -d "$root/.agents/tasks" || die "missing .agents/tasks in $root"
   test -d "$root/.agents/skills" || die "missing .agents/skills in $root"
@@ -114,10 +125,13 @@ sync_overlay() {
   local target_root="$2"
   local excludes=()
   local exclude
+  local overlay_file
 
   require_overlay_source "$source_root"
   mkdir -p "$target_root/.agents"
-  rsync -a "$source_root/AGENTS.md" "$target_root/"
+  for overlay_file in "${OVERLAY_FILES[@]}"; do
+    rsync -a "$source_root/$overlay_file" "$target_root/"
+  done
   sync_tree "$source_root/.agents/docs" "$target_root/.agents/docs" --exclude='.git'
   sync_tree "$source_root/.agents/tasks" "$target_root/.agents/tasks" --exclude='.git'
 
@@ -184,12 +198,15 @@ compare_overlay() {
   local excludes=()
   local exclude
   local failed=0
+  local overlay_file
 
   require_overlay_source "$source_root"
-  cmp -s "$source_root/AGENTS.md" "$target_root/AGENTS.md" || {
-    echo 'agents-sync: AGENTS.md differs' >&2
-    failed=1
-  }
+  for overlay_file in "${OVERLAY_FILES[@]}"; do
+    cmp -s "$source_root/$overlay_file" "$target_root/$overlay_file" || {
+      echo "agents-sync: $overlay_file differs" >&2
+      failed=1
+    }
+  done
   compare_tree \
     '.agents/docs' \
     "$source_root/.agents/docs" \
@@ -269,7 +286,7 @@ publish_mirror() {
   compare_overlay "$PROJECT_ROOT" "$MIRROR_ROOT"
   compare_develop_skills "$SNAPSHOT_ROOT"
   git -C "$MIRROR_ROOT" diff --check
-  git -C "$MIRROR_ROOT" add AGENTS.md .agents
+  git -C "$MIRROR_ROOT" add "${OVERLAY_FILES[@]}" .agents
 
   if git -C "$MIRROR_ROOT" diff --cached --quiet; then
     echo 'agents-sync: mirror already matches the project overlay and origin/develop'
