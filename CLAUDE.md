@@ -37,6 +37,11 @@
 
 ## 4) Operating Workflow
 
+### Shared instruction files
+
+- `AGENTS.md` and `CLAUDE.md` must always be byte-for-byte identical.
+- Apply every change to either instruction file to both files in the same edit.
+
 ### LT CLI in shell session
 
 - Before any LT command, run: `source ./lt.sh`.

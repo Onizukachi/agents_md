@@ -97,6 +97,8 @@ require_overlay_source() {
   for overlay_file in "${OVERLAY_FILES[@]}"; do
     test -f "$root/$overlay_file" || die "missing $overlay_file in $root"
   done
+  cmp -s "$root/AGENTS.md" "$root/CLAUDE.md" ||
+    die "AGENTS.md and CLAUDE.md differ in $root; apply instruction changes to both files"
   test -d "$root/.agents/docs" || die "missing .agents/docs in $root"
   test -d "$root/.agents/tasks" || die "missing .agents/tasks in $root"
   test -d "$root/.agents/skills" || die "missing .agents/skills in $root"
