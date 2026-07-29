@@ -31,9 +31,9 @@
 - Use `.agents/skills/leveltravel-frontend-asset-recovery` when frontend changes are not visible after reload and restart.
 - Use `.agents/skills/leveltravel-activeadmin-ui-check` for ActiveAdmin page checks and recovery flow.
 - Use `.agents/skills/leveltravel-agents-sync` for syncing `AGENTS.md`, `CLAUDE.md`, and `.agents/` into `../agents_md`.
-- Use `.agents/skills/skill-importer` for installing or updating shared Codex skills into the local skills directory.
-- Use `.agents/skills/skill-exporter` for exporting local Codex skills into a shared skills repository.
-- Use `.agents/skills/skills-syncer` for comparing and synchronizing local Codex skills with a shared skills repository.
+- Use `.agents/skills/skill-importer` for installing or updating shared agent skills into the local skills directory.
+- Use `.agents/skills/skill-exporter` for exporting local agent skills into a shared skills repository.
+- Use `.agents/skills/skills-syncer` for comparing and synchronizing local agent skills with a shared skills repository.
 
 ## 4) Operating Workflow
 
