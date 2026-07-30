@@ -30,7 +30,7 @@
 - Use `.agents/skills/sentry-local` for investigating issues and events in the local LevelTravel Sentry.
 - Use `.agents/skills/leveltravel-frontend-asset-recovery` when frontend changes are not visible after reload and restart.
 - Use `.agents/skills/leveltravel-activeadmin-ui-check` for ActiveAdmin page checks and recovery flow.
-- Use `.agents/skills/leveltravel-agents-sync` for syncing `AGENTS.md`, `CLAUDE.md`, and `.agents/` into `../agents_md`.
+- Use `.agents/skills/leveltravel-agents-sync` for syncing the canonical `AGENTS.md`, the thin `CLAUDE.md` pointer, and `.agents/` into `../agents_md`.
 - Use `.agents/skills/skill-importer` for installing or updating shared agent skills into the local skills directory.
 - Use `.agents/skills/skill-exporter` for exporting local agent skills into a shared skills repository.
 - Use `.agents/skills/skills-syncer` for comparing and synchronizing local agent skills with a shared skills repository.
@@ -39,8 +39,9 @@
 
 ### Shared instruction files
 
-- `AGENTS.md` and `CLAUDE.md` must always be byte-for-byte identical.
-- Apply every change to either instruction file to both files in the same edit.
+- `AGENTS.md` is the canonical source of project guidance for all AI agents.
+- `CLAUDE.md` only points Claude Code to `AGENTS.md`; do not duplicate project instructions there.
+- Apply project instruction changes only to `AGENTS.md`.
 
 ### LT CLI in shell session
 
@@ -195,7 +196,7 @@ For any work with Rails migrations, use the `.agents/skills/leveltravel-migratio
 - Required migrations are applied and schema changes are clean/relevant.
 - Tests related to changed files or changed behavior pass locally.
 - PAPI v3 docs are updated when routes or contracts change.
-- `AGENTS.md`, `CLAUDE.md`, and `.agents/` changes are synced via `.agents/skills/leveltravel-agents-sync`.
+- `AGENTS.md`, the thin `CLAUDE.md` pointer, and `.agents/` changes are synced via `.agents/skills/leveltravel-agents-sync`.
 
 ### SHOULD
 

@@ -28,9 +28,12 @@ Never import mirror copies of develop-owned skills into the project.
 
 ## Shared Instructions Invariant
 
-`AGENTS.md` and `CLAUDE.md` must always be byte-for-byte identical. Apply every
-instruction change to both files in the same edit. The sync script refuses to
-pull, check, or publish an overlay whose copies differ.
+`AGENTS.md` is the canonical source of project guidance. Apply instruction
+changes only to `AGENTS.md`.
+
+`CLAUDE.md` must remain a thin, fixed pointer that imports `AGENTS.md`. Do not
+duplicate project guidance in it. The sync script refuses to pull, check, or
+publish an overlay when `CLAUDE.md` differs from the expected pointer content.
 
 ## Local Excludes
 

@@ -14,6 +14,14 @@ OVERLAY_FILES=(
 )
 SNAPSHOT_ROOT=''
 
+canonical_claude_md() {
+  cat <<'EOF'
+All project guidance for AI agents (including Claude Code) lives in AGENTS.md. This file is intentionally thin and only re-exports the canonical document—keep all edits in AGENTS.md to avoid drift.
+
+@AGENTS.md
+EOF
+}
+
 cleanup_snapshot() {
   if test -n "$SNAPSHOT_ROOT" && test -d "$SNAPSHOT_ROOT"; then
     rm -rf -- "$SNAPSHOT_ROOT"
@@ -97,8 +105,8 @@ require_overlay_source() {
   for overlay_file in "${OVERLAY_FILES[@]}"; do
     test -f "$root/$overlay_file" || die "missing $overlay_file in $root"
   done
-  cmp -s "$root/AGENTS.md" "$root/CLAUDE.md" ||
-    die "AGENTS.md and CLAUDE.md differ in $root; apply instruction changes to both files"
+  cmp -s <(canonical_claude_md) "$root/CLAUDE.md" ||
+    die "CLAUDE.md in $root is not the canonical AGENTS.md pointer; apply instruction changes only to AGENTS.md"
   test -d "$root/.agents/docs" || die "missing .agents/docs in $root"
   test -d "$root/.agents/tasks" || die "missing .agents/tasks in $root"
   test -d "$root/.agents/skills" || die "missing .agents/skills in $root"
