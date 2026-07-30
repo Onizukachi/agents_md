@@ -39,13 +39,6 @@ If no route matches, follow this document and proceed directly; do not invent a 
 
 ## 4) Project Invariants
 
-### Agent instructions
-
-- `AGENTS.md` is the canonical source of project guidance for all AI agents.
-- `CLAUDE.md` is only a thin pointer importing `AGENTS.md`; do not duplicate guidance there.
-- Apply instruction changes only to `AGENTS.md`.
-- After changing `AGENTS.md`, `CLAUDE.md`, or `.agents/`, follow `leveltravel-agents-sync`.
-
 ### Dependencies
 
 - Do not add gems without explicit user approval.
@@ -137,8 +130,7 @@ Keep model files in this order:
 
 ### Formatting
 
-- Prefer single-quoted strings unless interpolation or escaping requires double quotes.
-- Use parentheses delimiters for percent literals: `%w(...)`, `%i(...)`, `%W(...)`, `%I(...)`, `%q(...)`, `%Q(...)`, `%r(...)`, `%x(...)`.
+- Follow `.rubocop.yml`: single-quoted strings and parentheses delimiters for percent literals.
 
 ### ActiveAdmin
 
