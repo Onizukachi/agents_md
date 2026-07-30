@@ -80,8 +80,7 @@ Use these locations:
 |---|---|
 | ActiveAdmin resources/controllers | `app/admin/` |
 | External integrations | `app/apis/` |
-| New query objects | `app/queries/` |
-| Legacy query objects | `app/query/` — do not add new files or move existing ones without a dedicated task |
+| Query objects | `app/queries/` |
 | Presentation formatting | `app/decorators/` |
 | Business services | `app/services/` |
 | Sidekiq workers | `app/workers/` |
