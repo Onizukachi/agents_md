@@ -1,95 +1,108 @@
 # Coding Agent Instructions
 
-## 1) Business Context
+## 1) Quick Start
 
-- Product domain: travel.
-- The app lets participants search, book, and purchase tours and hotels.
-- Business model: travel aggregator, not a tour operator.
+- Use the task-routing table below before starting specialized work.
+- Before any LT command, run `source ./lt.sh`, then use the loaded `lt` function.
+- Run every Rails command inside the Rails container: enter it with `lt sh` first.
+- Background jobs are Sidekiq workers in `app/workers/`, not ActiveJob classes; there is no `app/jobs/`.
+- Apply the conditional Definition of Done at the end of this document.
 
-### Tech Stack
+## 2) Project Context
 
-- Ruby 3.1, Rails 6.1, PostgreSQL, Redis.
-- Background jobs: Sidekiq (`app/workers/`), not ActiveJob — there is no `app/jobs/`.
-- Tests: RSpec.
+- Domain: travel.
+- The product is a travel aggregator, not a tour operator.
+- Participants can search, book, and purchase tours and hotels.
+- Stack: Ruby 3.1, Rails 6.1, PostgreSQL, Redis, Sidekiq, and RSpec.
 
-## 2) Architectural Principles
+## 3) Task Routing
 
-- Prefer Rails conventions over custom architecture.
-- Keep code simple, clear, and maintainable.
-- Use business/domain naming, not generic technical naming.
-- Keep responsibilities by layer:
-  - Models: persistence, associations, validations, callbacks, and small domain behavior.
-  - Controllers: HTTP only.
-  - Jobs: background execution, orchestration, and small job-specific logic.
-  - Services: complex business operations, reusable workflows, and external integrations.
+| Task | Required guidance |
+|---|---|
+| Rails migrations | `.agents/skills/leveltravel-migrations` |
+| Focused or CI-equivalent tests | `.agents/skills/leveltravel-tests` |
+| Prepare, push, or open a regular PR | `.agents/skills/leveltravel-pr-workflow` |
+| Final read-only review before push or PR update | `.agents/skills/leveltravel-pr-review` |
+| Production hotfix with `master` and `develop` PRs | `.agents/skills/leveltravel-hotfix-workflow` |
+| Elasticsearch log investigation | `.agents/skills/lvtv-elastic-logs` |
+| Yandex Tracker work | `.agents/skills/yandex-tracker` |
+| Redash queries or read-only SQL | `.agents/skills/redash-api` |
+| Local LevelTravel Sentry investigation | `.agents/skills/sentry-local` |
+| Frontend changes missing after reload/restart | `.agents/skills/leveltravel-frontend-asset-recovery` |
+| ActiveAdmin browser check or recovery | `.agents/skills/leveltravel-activeadmin-ui-check` |
+| Change or synchronize `AGENTS.md`, `CLAUDE.md`, or `.agents/` | `.agents/skills/leveltravel-agents-sync` |
+| Install/update, export, or compare shared skills | `.agents/skills/skill-importer`, `skill-exporter`, or `skills-syncer`, respectively |
+| Payment, callback, or receipt flow | `.agents/docs/payments.md` |
+| PAPI v3 route or contract | `.agents/docs/papi_v3_docs.md` |
 
-## 3) Skill Routing
+If no route matches, follow this document and proceed directly; do not invent a skill.
 
-- Use `.agents/skills/leveltravel-migrations` for Rails migration work.
-- Use `.agents/skills/leveltravel-tests` for CI-equivalent and focused test verification flows.
-- Use `.agents/skills/leveltravel-pr-workflow` for preparing, pushing, or opening regular pull requests.
-- Use `.agents/skills/leveltravel-pr-review` for the final read-only review gate before push or PR update.
-- Use `.agents/skills/leveltravel-hotfix-workflow` for production hotfixes that require paired `master` and `develop` PRs.
-- Use `.agents/skills/lvtv-elastic-logs` for production/staging/integration Elasticsearch log investigations.
-- Use `.agents/skills/yandex-tracker` for reading, creating, updating, or analyzing Tracker tasks.
-- Use `.agents/skills/redash-api` for Redash API access, saved query execution, and read-only ad-hoc SQL through Redash.
-- Use `.agents/skills/sentry-local` for investigating issues and events in the local LevelTravel Sentry.
-- Use `.agents/skills/leveltravel-frontend-asset-recovery` when frontend changes are not visible after reload and restart.
-- Use `.agents/skills/leveltravel-activeadmin-ui-check` for ActiveAdmin page checks and recovery flow.
-- Use `.agents/skills/leveltravel-agents-sync` for syncing the canonical `AGENTS.md`, the thin `CLAUDE.md` pointer, and `.agents/` into `../agents_md`.
-- Use `.agents/skills/skill-importer` for installing or updating shared agent skills into the local skills directory.
-- Use `.agents/skills/skill-exporter` for exporting local agent skills into a shared skills repository.
-- Use `.agents/skills/skills-syncer` for comparing and synchronizing local agent skills with a shared skills repository.
-- If no skill above matches the task, do not invent one — follow the general rules in this document and proceed directly.
+## 4) Project Invariants
 
-## 4) Operating Workflow
+### Agent instructions
 
-### Shared instruction files
+- `AGENTS.md` is the canonical source of project guidance for all AI agents.
+- `CLAUDE.md` is only a thin pointer importing `AGENTS.md`; do not duplicate guidance there.
+- Apply instruction changes only to `AGENTS.md`.
+- After changing `AGENTS.md`, `CLAUDE.md`, or `.agents/`, follow `leveltravel-agents-sync`.
 
-- Run `.agents/skills/leveltravel-agents-sync` after any change to `AGENTS.md`, `CLAUDE.md`, or `.agents/`.
+### Dependencies
 
-### LT CLI in shell session
+- Do not add gems without explicit user approval.
+- When proposing a gem, first give a short rationale and tradeoffs.
 
-- Before any LT command, run: `source ./lt.sh`.
-- Run LT commands through the loaded function (`lt logs rails`, `lt status`, `lt sh`, etc.).
-- For any interaction with Rails inside the container, first enter the Rails container with `lt sh`, then run the needed command there.
+### External HTTP
 
-### Task Artifacts
-
-- Task artifacts live in `.agents/tasks/` as `task-<number>.md`.
-- If the user mentions working with artifacts, look in `.agents/tasks/`.
-- Create task artifacts only when the user explicitly asks for them.
-
-## 5) Dependency And HTTP Policy
-
-Dependency policy:
-- Do not add new gems without explicit approval.
-- If a gem is needed, propose short rationale + tradeoffs first.
-
-HTTP policy:
-- Use `ExternalRequest` as wrapper around `Typhoeus`.
+- Use `ExternalRequest` as the wrapper around `Typhoeus`.
 - Do not introduce `Faraday` or `RestClient`.
 
-## 6) File Placement
+### Feature flags
 
-- `app/admin/`: ActiveAdmin resources/controllers
-- `app/apis/`: external integrations (payments/fiscal/etc.)
-- `app/query/`, `app/queries/`: read-only query objects
-- `app/decorators/`: presentation formatting
-- `app/services/`: business services (see Service extraction rules, section 7)
-- `app/workers/`: Sidekiq background jobs (see Job Rules, section 8)
-- `app/serializers/`: API response serialization
+- Treat `use_advanced_receipts` and `new_payments_architecture` as always `true`.
+- These flags are legacy; do not implement or rely on their `false` behavior.
 
-## 7) Modeling And Conventions
+## 5) Architecture and File Placement
 
-### Naming
+Prefer Rails conventions and simple, maintainable code. Use business names such as `Participant` or `Cloud`, not generic technical placeholders such as `User` or `GeneratedImage`.
 
-- Use domain names (`Participant`, `Cloud`, etc.), not technical placeholders (`User`, `GeneratedImage`, etc.).
-- Models must inherit from `ApplicationRecord`.
+Keep responsibilities separated:
 
-### Model structure order
+- Models: persistence, associations, validations, callbacks, and small domain behavior.
+- Controllers: HTTP concerns only.
+- Workers: background execution, orchestration, retries, and small worker-specific logic.
+- Services: complex business operations, reusable workflows, and external integrations.
+- Query objects: complex or reusable read-only data fetching.
+- Decorators and serializers: presentation and API response formatting.
 
-Keep this order in model files:
+Use these locations:
+
+| Code | Location |
+|---|---|
+| ActiveAdmin resources/controllers | `app/admin/` |
+| External integrations | `app/apis/` |
+| New query objects | `app/queries/` |
+| Legacy query objects | `app/query/` — do not add new files or move existing ones without a dedicated task |
+| Presentation formatting | `app/decorators/` |
+| Business services | `app/services/` |
+| Sidekiq workers | `app/workers/` |
+| API serializers | `app/serializers/` |
+
+## 6) Rails Conventions
+
+### Models and data
+
+- Models inherit from `ApplicationRecord`.
+- Normalize tables: one concern per table.
+- Index reference-like and frequently filtered columns.
+- Add composite indexes for common query patterns.
+- Use string columns and string-backed enums for states and statuses:
+
+```ruby
+enum :state, %w(uploaded analyzing analyzed generating generated failed).index_with(&:to_s)
+```
+
+Keep model files in this order:
+
 1. DSL/gem extensions
 2. associations
 3. enums
@@ -100,119 +113,88 @@ Keep this order in model files:
 8. public methods
 9. private methods
 
-### State fields
+### Controllers, services, and workers
 
-- Use enums for states/statuses.
-- Keep DB columns as strings.
-- Prefer string-backed enum mapping:
+- Keep controllers thin, use guard clauses, and keep business logic out of them.
+- Extract namespaced services, such as `Clouds::CardGenerator`, for complex, reused, external-API, or oversized model/controller logic.
+- Keep reusable business logic out of workers.
+- Handle worker errors explicitly: rescue, report to Sentry where used, and persist the failed state or reason.
 
-```ruby
-enum :state, %w(uploaded analyzing analyzed generating generated failed).index_with(&:to_s)
-```
+### Queries and views
 
-### Controller constraints
+- Keep query objects composable and read-only.
+- Keep views limited to simple associations and scopes; do not put complex filtering in templates.
+- Prevent N+1 queries with eager loading such as `includes`.
 
-- Keep controllers thin and focused on HTTP concerns.
-- Use guard clauses and early returns.
-- Keep business logic out of controllers.
-
-### Service extraction rules
-
-Extract to namespaced services (e.g. `Clouds::CardGenerator`) when logic is:
-- complex,
-- calling external APIs,
-- reused,
-- or too large for a model/controller method.
-
-### Data modeling
-
-- Normalize tables: one concern per table.
-- Index reference-like columns and frequently filtered columns.
-- Add composite indexes for common query patterns.
-
-For any work with Rails migrations, use the `.agents/skills/leveltravel-migrations` skill.
-
-## 8) Job Rules
-
-- Background jobs are Sidekiq workers in `app/workers/` (`include Sidekiq::Worker`), not ActiveJob classes; there is no `app/jobs/`.
-- Jobs handle background execution, orchestration, retries, and small job-specific logic; heavy reusable logic belongs in services.
-- Handle errors explicitly:
-  - rescue,
-  - report (Sentry where used),
-  - persist failed state/reason.
-
-## 9) Query and View Rules
-
-- Use query objects for complex/reused data fetching.
-- Keep views simple: associations/scopes only.
-- Avoid complex filtering logic in templates.
-- Prevent N+1 with eager loading (`includes`, etc.).
-
-## 10) Localization (I18n)
+### Localization
 
 - Prefer translations in `config/locales/ru.yml`.
-- For ActiveRecord validations, model names, and attribute names, prefer keys under:
+- Put ActiveRecord validation, attribute, and model translations under:
   - `activerecord.errors.models`
   - `activerecord.attributes`
   - `activerecord.models`
-- When adding a new model or new persisted fields, add at least draft Russian translations for the model name and its attributes in `config/locales/ru.yml`.
-- Custom I18n keys are allowed (and preferred) for business/UI texts that are not model metadata.
-- Avoid hardcoded Russian strings in reusable user-facing messages.
+- Add at least draft Russian model and attribute translations for new models or persisted fields.
+- Prefer custom I18n keys for reusable business and UI text; avoid hardcoded Russian messages.
 
-## 11) Formatting Rules
+### Formatting
 
-- Prefer single-quoted strings unless interpolation/escaping requires double quotes.
-- Use percent literal parentheses delimiters:
-  - `%w(...)`, `%i(...)`, `%W(...)`, `%I(...)`, `%q(...)`, `%Q(...)`, `%r(...)`, `%x(...)`.
+- Prefer single-quoted strings unless interpolation or escaping requires double quotes.
+- Use parentheses delimiters for percent literals: `%w(...)`, `%i(...)`, `%W(...)`, `%I(...)`, `%q(...)`, `%Q(...)`, `%r(...)`, `%x(...)`.
 
-## 12) ActiveAdmin Rules
+### ActiveAdmin
 
-### Resource section order (`app/admin/*.rb`)
+Keep `app/admin/*.rb` blocks in this order:
 
 1. Base config: `menu`, `actions`, `permit_params`, `includes`, `config.*`
 2. `scope`
 3. `filter`
-4. presentation: `index`, `show`, `form`
+4. Presentation: `index`, `show`, `form`
 5. UI actions: `action_item`, `batch_action`, `sidebar`
-6. custom actions: `member_action`, `collection_action`
+6. Custom actions: `member_action`, `collection_action`
 7. `controller do ... end`
 
-## 13) Testing Guidance
+### Tests
 
-- Use `.agents/skills/leveltravel-tests` for test-running workflows.
-- Before local test commands through the project environment, run `source ./lt.sh`.
+- Use RSpec.
 - Prefer `let_it_be` or `let_it_be_with_reload` when they improve suite speed and clarity.
 
-## 14) Feature Flags
+## 7) Domain-Specific Guidance
 
-- Current baseline flags: `use_advanced_receipts`, `new_payments_architecture`.
-- These two flags are currently legacy and must be treated as always `true`.
-- Until removed, do not implement or rely on `false` behavior for these two flags.
+### Payments
 
-## 15) Payments
+Follow `.agents/docs/payments.md` for order, payment, callback, and receipt flows.
 
-- For order/payment/callback/receipt flows, follow: `.agents/docs/payments.md`.
+### PAPI v3
 
-## 16) PAPI v3 Documentation
+- Follow `.agents/docs/papi_v3_docs.md` for route and contract changes.
+- Keep PAPI v3 documentation synchronized in the same PR as the code.
 
-- For any added/changed PAPI v3 route or contract, update docs using: `.agents/docs/papi_v3_docs.md`.
-- Keep PAPI v3 docs in sync in the same PR as code changes.
+## 8) Task Artifacts
 
-## 17) Definition of Done
+- Task artifacts live in `.agents/tasks/` as `task-<number>.md`.
+- Look there when the user mentions an artifact.
+- Create an artifact only when the user explicitly requests one.
 
-### MUST
+## 9) Conditional Definition of Done
 
-- Required migrations are applied and schema changes are clean/relevant.
-- Tests related to changed files or changed behavior pass locally.
-- PAPI v3 docs are updated when routes or contracts change.
+All applicable MUST rows must be satisfied:
 
-### SHOULD
+| Change | MUST |
+|---|---|
+| Behavior or application code | Related tests pass locally |
+| Database schema | Migration workflow completed; migrations applied; schema changes clean and relevant |
+| PAPI v3 route or contract | Documentation updated in the same PR |
+| Payment, callback, or receipt flow | Payment guidance followed and relevant behavior covered |
+| `AGENTS.md`, `CLAUDE.md`, or `.agents/` | Agent mirror synchronized through `leveltravel-agents-sync` |
+| Push or PR update | Required test, review, and PR workflows completed |
 
-- `app/admin/*.rb` follows the agreed block order.
-- Controllers stay thin with clear guard clauses.
-- Queries remain composable/readable; no view-level complex filtering.
+For changed code, also verify where applicable:
+
+- ActiveAdmin files follow the agreed block order.
+- Controllers remain thin with clear guard clauses.
+- Queries remain composable and views contain no complex filtering.
 - N+1 risks are handled with eager loading.
-- New indexes are added where query patterns require them.
-- I18n keys are used for AR errors/attributes/model names.
+- Query patterns have the required indexes.
+- ActiveRecord and reusable UI text use appropriate I18n keys.
 
-If all MUST items are satisfied, the change is ready for review.
+When every applicable MUST row is satisfied, the change is ready for review.
