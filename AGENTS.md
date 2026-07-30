@@ -183,7 +183,6 @@ All applicable MUST rows must be satisfied:
 | Behavior or application code | Related tests pass locally |
 | Database schema | Migration workflow completed; migrations applied; schema changes clean and relevant |
 | PAPI v3 route or contract | Documentation updated in the same PR |
-| Payment, callback, or receipt flow | Payment guidance followed and relevant behavior covered |
 | `AGENTS.md`, `CLAUDE.md`, or `.agents/` | Agent mirror synchronized through `leveltravel-agents-sync` |
 | Push or PR update | Required test, review, and PR workflows completed |
 
