@@ -6,6 +6,12 @@
 - The app lets participants search, book, and purchase tours and hotels.
 - Business model: travel aggregator, not a tour operator.
 
+### Tech Stack
+
+- Ruby 3.1, Rails 6.1, PostgreSQL, Redis.
+- Background jobs: Sidekiq (`app/workers/`), not ActiveJob — there is no `app/jobs/`.
+- Tests: RSpec.
+
 ## 2) Architectural Principles
 
 - Prefer Rails conventions over custom architecture.
@@ -34,14 +40,13 @@
 - Use `.agents/skills/skill-importer` for installing or updating shared agent skills into the local skills directory.
 - Use `.agents/skills/skill-exporter` for exporting local agent skills into a shared skills repository.
 - Use `.agents/skills/skills-syncer` for comparing and synchronizing local agent skills with a shared skills repository.
+- If no skill above matches the task, do not invent one — follow the general rules in this document and proceed directly.
 
 ## 4) Operating Workflow
 
 ### Shared instruction files
 
-- `AGENTS.md` is the canonical source of project guidance for all AI agents.
-- `CLAUDE.md` only points Claude Code to `AGENTS.md`; do not duplicate project instructions there.
-- Apply project instruction changes only to `AGENTS.md`.
+- Run `.agents/skills/leveltravel-agents-sync` after any change to `AGENTS.md`, `CLAUDE.md`, or `.agents/`.
 
 ### LT CLI in shell session
 
@@ -69,8 +74,11 @@ HTTP policy:
 
 - `app/admin/`: ActiveAdmin resources/controllers
 - `app/apis/`: external integrations (payments/fiscal/etc.)
-- `app/query/`: read-only query objects
+- `app/query/`, `app/queries/`: read-only query objects
 - `app/decorators/`: presentation formatting
+- `app/services/`: business services (see Service extraction rules, section 7)
+- `app/workers/`: Sidekiq background jobs (see Job Rules, section 8)
+- `app/serializers/`: API response serialization
 
 ## 7) Modeling And Conventions
 
@@ -126,6 +134,7 @@ For any work with Rails migrations, use the `.agents/skills/leveltravel-migratio
 
 ## 8) Job Rules
 
+- Background jobs are Sidekiq workers in `app/workers/` (`include Sidekiq::Worker`), not ActiveJob classes; there is no `app/jobs/`.
 - Jobs handle background execution, orchestration, retries, and small job-specific logic; heavy reusable logic belongs in services.
 - Handle errors explicitly:
   - rescue,
@@ -196,7 +205,6 @@ For any work with Rails migrations, use the `.agents/skills/leveltravel-migratio
 - Required migrations are applied and schema changes are clean/relevant.
 - Tests related to changed files or changed behavior pass locally.
 - PAPI v3 docs are updated when routes or contracts change.
-- `AGENTS.md`, the thin `CLAUDE.md` pointer, and `.agents/` changes are synced via `.agents/skills/leveltravel-agents-sync`.
 
 ### SHOULD
 
