@@ -1,6 +1,6 @@
 ---
 name: leveltravel-pr-workflow
-description: Use when creating, updating, pushing, or opening a pull request in the LevelTravel Rails repository. Handles fresh develop workflow, GitFlow branch naming, architecture-aware local testing, read-only PR review, GitHub push, ready PR creation, and the authoritative remote TeamCity gate before merge.
+description: Use when creating, updating, pushing, or opening a pull request in the LevelTravel Rails repository. Handles Tracker task discovery/creation/status updates when the yandex-tracker skill is available, fresh develop workflow, GitFlow branch naming, architecture-aware local testing, read-only PR review, GitHub push, ready PR creation, and the authoritative remote TeamCity gate before merge.
 ---
 
 # LevelTravel PR Workflow
@@ -41,12 +41,79 @@ If the current branch already contains the requested work, keep using it unless 
 Branch naming:
 
 - Prefer the repository GitFlow pattern from existing PRs: `feature/LT-<ticket-number>-<short-english-slug>`.
-- If there is no LT tracker ticket, use `feature/<short-english-slug>` and mention the missing ticket in the PR body.
+- If `$yandex-tracker` is available and there is no LT tracker ticket, create one before creating the branch.
+- Use `feature/<short-english-slug>` only when Tracker automation is unavailable or blocked; mention that explicitly in the branch/PR context.
 - Use `hotfix/<short-english-slug>` only for hotfix PRs and `release/<YYYYMMDD>` only for release PRs.
 - Use English, lowercase, kebab-case slugs after the ticket number.
 - Use two to five semantic words after the ticket number.
 - Avoid vague slugs such as `fix`, `updates`, `changes`, `misc`, or `wip`.
 - Do not use `codex/*` as the default branch prefix in this repository; Codex authorship belongs in the PR context, not the branch name.
+
+## Tracker Task Automation
+
+When `$yandex-tracker` is available, every PR branch must be tied to one `LT-<number>` task before commit, push, or PR creation.
+
+Treat this workflow as the user's standing instruction to create a missing `LT` task for PR work in this repository. Do not require the user to separately ask "create a Tracker task" when the PR work has no task yet.
+
+If the skill is unavailable in the current Codex installation, continue the Git workflow without Tracker automation and state that the Tracker step could not run because `$yandex-tracker` is not installed. If the skill is available but credentials, permissions, or network fail, stop before push/PR unless the user explicitly asks to continue without Tracker writes.
+
+Resolve the Tracker task before creating a new branch:
+
+- Use an explicit `LT-<number>` from the user request, current branch, commit subject, or existing PR.
+- Otherwise load `$yandex-tracker`, inspect config with `python3 "$TRACKER_HELPER" config`, and search current/recent `LT` tasks by user request keywords, touched area, Sentry issue, support ticket, project, and branch slug.
+- If exactly one current task clearly matches, use it.
+- If several plausible tasks match, ask the user to choose.
+- If no task matches, create a new `LT` task.
+
+Create missing tasks through `$yandex-tracker` with LevelTravel defaults:
+
+- Queue: `LT`.
+- Type: `task`.
+- Priority: `normal` unless the user provided another priority.
+- Assignee: current Codex/Tracker user from `YANDEX_TRACKER_DEFAULT_USER_EMAIL` or `YANDEX_TRACKER_DEFAULT_USER_NAME`. If no current user is configured, ask once for the Tracker login/email instead of assigning to a guessed git author.
+- Sprint: current Scrum sprint from `python3 "$TRACKER_HELPER" current-sprint`.
+- Team: infer from the work. For this Rails repo, use `WebBack` when no safer team is evident.
+- Story points: estimate and fill `storyPoints`.
+- Project: attach only when the user request, existing EpicFlow context, branch, or code owner makes the project clear; do not invent a project.
+- Description: include the user request, why the change is needed, affected behavior, planned implementation, test plan, risks, and source links such as Sentry/PR/support issue.
+
+Use the installed helper shape. The global LevelTravel helper may require queue-specific fields through `--field-json`, for example:
+
+```bash
+python3 "$TRACKER_HELPER" create \
+  --queue LT \
+  --summary '<short Russian task title>' \
+  --type task \
+  --priority normal \
+  --assignee '<tracker-login-or-id>' \
+  --sprint-ids '<current-sprint-id>' \
+  --description-file /path/to/description.md \
+  --markup-type md \
+  --field-json '{"storyPoints": 2, "65ba668d034eb51c5204c8d4--team": "WebBack"}'
+```
+
+Story point heuristic:
+
+- `1`: docs/config/test-only, or a tiny isolated code change without behavior risk.
+- `2`: narrow production or user-visible fix with focused regression coverage, such as the FastConfirm `order.reload` hotfix shape.
+- `3`: small feature or behavior change across several Rails files, serializers, jobs, or specs.
+- `5`: cross-module change, external integration behavior, migration, backfill, or operational rollout.
+- `8+`: broad or unclear scope; ask the user before creating the task.
+
+Move the task through statuses with `$yandex-tracker`:
+
+- After creating or switching to the implementation branch, move the task to the actual work-start status, usually `В работе` / `In Progress`.
+- After tests/review gate are complete and the ready PR is opened or updated, move the task to the actual review status, usually `Ревью` / `Review`.
+- After the PR is merged and the required remote gate/deploy state for the task is satisfied, move the task to the actual done status, usually `Завершено` / `Done`.
+
+Before status moves, inspect available transitions when needed:
+
+```bash
+python3 "$TRACKER_HELPER" transitions LT-123
+python3 "$TRACKER_HELPER" move LT-123 'Ревью' --comment 'PR ready for review: <url>'
+```
+
+Follow required intermediate transitions instead of forcing a final status. If a status move is impossible, keep the PR work going only after reporting the exact Tracker blocker.
 
 ## Development Loop
 
@@ -130,6 +197,10 @@ Every PR body should include:
 - PASS: `leveltravel-pr-review` completed against `origin/develop`
 - Findings: none / addressed / accepted concerns listed above
 
+## Tracker
+- Task: `LT-...`
+- Status: moved to Review / blocked: <reason>
+
 ## Operational notes
 - Migrations: yes/no
 - Background jobs: yes/no
@@ -145,3 +216,4 @@ Rules:
 - After TeamCity finishes, update the PR test status to `PASS remote authoritative amd64 gate` with its build URL, or report the exact failure.
 - Call out migrations, background jobs, data backfills, scheduled tasks, external service calls, and rollout risks.
 - If the PR updates an existing open PR, update the body so the latest tests and review status remain accurate.
+- Include the Tracker task key and real status automation result. If `$yandex-tracker` is unavailable, say so instead of implying the task was created or moved.
