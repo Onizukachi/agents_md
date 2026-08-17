@@ -31,7 +31,7 @@ runtime_log_dir="${RUNTIME_LOG_DIR:-${repo_root}/tmp/teamcity-arm64}/${run_id}"
 container_name="rspec_${run_id}"
 image_name="integration-arm64:${run_id}"
 compose_project="${worker_name}-i"
-dev_rails_image="${DEV_RAILS_IMAGE:-cr.yandex/crpg68tj52nf0fbhfo1e/dev-rails:2026-07}"
+dev_rails_image="${DEV_RAILS_IMAGE:-cr.yandex/crpg68tj52nf0fbhfo1e/dev-rails:2026-08-ruby3410}"
 bundle_jobs="${BUNDLE_JOBS:-6}"
 mysql_source_image="${MYSQL_IMAGE:-mysql:8.0}"
 redis_source_image="${REDIS_IMAGE:-redis:latest}"
@@ -144,7 +144,7 @@ COMPOSE
 
 cat > "$dockerfile" <<'DOCKERFILE'
 # syntax=docker/dockerfile:1.4
-ARG DEV_RAILS_IMAGE=cr.yandex/crpg68tj52nf0fbhfo1e/dev-rails:2026-07
+ARG DEV_RAILS_IMAGE=cr.yandex/crpg68tj52nf0fbhfo1e/dev-rails:2026-08-ruby3410
 FROM --platform=linux/arm64 ${DEV_RAILS_IMAGE}
 
 ARG BUNDLE_JOBS=6

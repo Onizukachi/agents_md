@@ -34,6 +34,8 @@ Treat this workflow as the user's standing instruction to create a missing `LT` 
 
 If the skill is unavailable in the current Codex installation, continue the hotfix workflow without Tracker automation and state that the Tracker step could not run because `$yandex-tracker` is not installed. If the skill is available but credentials, permissions, or network fail, stop before push/PR unless the user explicitly asks to continue without Tracker writes.
 
+Before creating a new Tracker task, inspect `python3 "$TRACKER_HELPER" config`. If both `defaultUser.name` and `defaultUser.email` are empty, stop and ask the user to configure `YANDEX_TRACKER_DEFAULT_USER_NAME` or `YANDEX_TRACKER_DEFAULT_USER_EMAIL`; do not guess from git author, shell username, or a remembered short login. An explicitly configured Tracker user id/login is acceptable only when the helper accepts it as `--assignee`.
+
 Resolve the task before creating the master hotfix branch:
 
 - Use an explicit `LT-<number>` from the user request, current Sentry/support context, current branch, existing PR, or incident notes.
@@ -50,7 +52,7 @@ Create missing hotfix tasks through `$yandex-tracker` with LevelTravel defaults:
 - Assignee: current Codex/Tracker user from `YANDEX_TRACKER_DEFAULT_USER_EMAIL` or `YANDEX_TRACKER_DEFAULT_USER_NAME`. If no current user is configured, ask once for the Tracker login/email instead of assigning to a guessed git author.
 - Sprint: current Scrum sprint from `python3 "$TRACKER_HELPER" current-sprint`.
 - Team: infer from the work. For Rails hotfixes, use `WebBack` when no safer team is evident.
-- Story points: estimate and fill `storyPoints`; most narrow one-commit Rails hotfixes with a regression spec are `2`.
+- Story points: estimate conservatively and fill `storyPoints`; most real production one-commit Rails hotfixes with a regression spec are `2`, while purely mechanical or config/test-only slices are `1`.
 - Project: attach only when the user request, existing EpicFlow context, branch, or code owner makes the project clear; do not invent a project for an incident-only hotfix.
 - Description: include the production symptom, evidence source, customer/operational impact, proposed narrow fix, paired PR plan, test plan, rollback/deploy notes, and source links such as Sentry/support issue.
 
@@ -72,17 +74,23 @@ python3 "$TRACKER_HELPER" create \
 Status flow:
 
 - After creating or switching to the master hotfix branch, move the task to the actual work-start status, usually `В работе` / `In Progress`.
-- After both ready PRs are opened or updated, move the task to the actual review status, usually `Ревью` / `Review`, and comment with both PR links.
-- Move the task to the actual done status, usually `Завершено` / `Done`, only after both required hotfix PRs are merged and the required deployment/release condition for the incident is satisfied.
+- After both ready PRs are opened or updated, move the task to the actual review status, usually `Ревью` / `Review`, and comment with both PR links. For LevelTravel `LT`, the transition to `Ревью` usually uses screen `431`; pass `--field-json` with `chtosdelanovzadache` and `kakdeploitzadachunastejdzhkakt`.
+- If the develop PR is merged while the paired master PR is still open, missing, failed, or review-blocked, keep the task in `Ревью` or report it as blocked; for paired hotfixes the master PR is the production ship vehicle. Do not use a develop-only merge as the normal signal for `Готово к релизу` in this hotfix workflow.
+- After the master PR is merged, the target business status is `Завершено` / `Done`; in this workflow, `master` means shipped. If the paired develop PR is still open or missing, report it as a follow-up branch-sync note rather than blocking the business status.
+- Without a merged `master` PR, move the task to `Завершено` / `Done` only after the required deployment/release/production-verification condition for the incident is satisfied.
+
+The screen id and field keys below are current LT examples, not a permanent schema contract. Treat `transitions` as the source of truth; if Tracker exposes another screen or required fields change, inspect transitions and existing task examples before guessing field keys.
 
 Before status moves, inspect available transitions when needed:
 
 ```bash
 python3 "$TRACKER_HELPER" transitions LT-123
-python3 "$TRACKER_HELPER" move LT-123 'Ревью' --comment 'Hotfix PRs ready: master <url>, develop <url>'
+python3 "$TRACKER_HELPER" move LT-123 'Ревью' \
+  --field-json '{"chtosdelanovzadache":"Implemented hotfix <summary>. PRs: master <url>, develop <url>.","kakdeploitzadachunastejdzhkakt":"Deploy/test: <stage/prod checks>. Checks: <real checks>."}' \
+  --comment 'Hotfix PRs ready: master <url>, develop <url>'
 ```
 
-Follow required intermediate transitions instead of forcing a final status. If a status move is impossible, keep the PR work going only after reporting the exact Tracker blocker.
+Follow required intermediate transitions instead of forcing a final status. If a status move is impossible, keep the PR work going only after reporting the exact Tracker blocker. At final response time, if the task is in `Ревью`, explicitly state the next Tracker action after merge: for paired hotfixes, a develop-only merge leaves the task in `Ревью`/blocked until the master PR is handled; `master` means move to `Завершено`, with any unmerged develop pair reported as follow-up.
 
 Reference shape: the FastConfirm hotfix for Sentry `47593` would use one task for `hotfix/fastconfirm-order-reload` and `hotfix/fastconfirm-order-reload-dev`, estimate `2` story points, describe the stale `OrderLog` association and `order.reload` fix, then move to Review after the `master` and `develop` PRs are both open.
 

@@ -62,6 +62,7 @@ Optional environment variables:
 - `WORKER_NAME`: base for Docker resource names. The helper still derives unique names for the current run.
 - `LOCAL_RSPEC_ARCH`: override architecture selection for diagnostics. By default the entry point uses `uname -m` and corrects translated macOS shells through `sysctl.proc_translated`; `arm64` and `aarch64` select the native helper, while `x86_64` and `amd64` select the canonical helper.
 - `DOCKER_REGISTRY`: registry that contains the canonical `rails-builder-test` image.
+- `RAILS_BUILDER_TAG`: immutable Ruby ABI-specific builder tag. Defaults to `ruby-3.4.10`.
 - `DEV_RAILS_IMAGE`: native ARM64 Ruby/Rails base image override.
 - `MYSQL_IMAGE` and `REDIS_IMAGE`: source image overrides; helpers pull the selected platform and copy it to architecture-specific local tags before Compose starts.
 - `BUNDLE_JOBS`: Bundler parallelism for the native ARM64 image build.

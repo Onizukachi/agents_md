@@ -57,6 +57,8 @@ Treat this workflow as the user's standing instruction to create a missing `LT` 
 
 If the skill is unavailable in the current Codex installation, continue the Git workflow without Tracker automation and state that the Tracker step could not run because `$yandex-tracker` is not installed. If the skill is available but credentials, permissions, or network fail, stop before push/PR unless the user explicitly asks to continue without Tracker writes.
 
+Before creating a new Tracker task, inspect `python3 "$TRACKER_HELPER" config`. If both `defaultUser.name` and `defaultUser.email` are empty, stop and ask the user to configure `YANDEX_TRACKER_DEFAULT_USER_NAME` or `YANDEX_TRACKER_DEFAULT_USER_EMAIL`; do not guess from git author, shell username, or a remembered short login. An explicitly configured Tracker user id/login is acceptable only when the helper accepts it as `--assignee`.
+
 Resolve the Tracker task before creating a new branch:
 
 - Use an explicit `LT-<number>` from the user request, current branch, commit subject, or existing PR.
@@ -64,6 +66,8 @@ Resolve the Tracker task before creating a new branch:
 - If exactly one current task clearly matches, use it.
 - If several plausible tasks match, ask the user to choose.
 - If no task matches, create a new `LT` task.
+
+For broad mechanical waves, prefer reusing one umbrella `LT` task instead of creating many small tasks. Use one task with multiple PR branches when the work is one technical initiative, one owner, and no separate QA/release ownership is needed. Create separate tasks only for independent QA units, incidents, product-visible behavior, ownership boundaries, or release/accounting slices.
 
 Create missing tasks through `$yandex-tracker` with LevelTravel defaults:
 
@@ -73,7 +77,7 @@ Create missing tasks through `$yandex-tracker` with LevelTravel defaults:
 - Assignee: current Codex/Tracker user from `YANDEX_TRACKER_DEFAULT_USER_EMAIL` or `YANDEX_TRACKER_DEFAULT_USER_NAME`. If no current user is configured, ask once for the Tracker login/email instead of assigning to a guessed git author.
 - Sprint: current Scrum sprint from `python3 "$TRACKER_HELPER" current-sprint`.
 - Team: infer from the work. For this Rails repo, use `WebBack` when no safer team is evident.
-- Story points: estimate and fill `storyPoints`.
+- Story points: estimate conservatively and fill `storyPoints`.
 - Project: attach only when the user request, existing EpicFlow context, branch, or code owner makes the project clear; do not invent a project.
 - Description: include the user request, why the change is needed, affected behavior, planned implementation, test plan, risks, and source links such as Sentry/PR/support issue.
 
@@ -94,26 +98,32 @@ python3 "$TRACKER_HELPER" create \
 
 Story point heuristic:
 
-- `1`: docs/config/test-only, or a tiny isolated code change without behavior risk.
-- `2`: narrow production or user-visible fix with focused regression coverage, such as the FastConfirm `order.reload` hotfix shape.
-- `3`: small feature or behavior change across several Rails files, serializers, jobs, or specs.
-- `5`: cross-module change, external integration behavior, migration, backfill, or operational rollout.
+- `1`: mechanical cleanup, test-only/config-only/docs-only change, one narrow contract-preserving PR, or a small technical slice inside a larger umbrella task.
+- `2`: real production or user-visible bugfix with focused regression coverage and some rollout/QA context.
+- `3`: behavior change across several Rails layers, serializers, jobs, controllers, or specs.
+- `5`: migration, backfill, external integration behavior, operational rollout, or cross-module risk.
 - `8+`: broad or unclear scope; ask the user before creating the task.
 
 Move the task through statuses with `$yandex-tracker`:
 
 - After creating or switching to the implementation branch, move the task to the actual work-start status, usually `В работе` / `In Progress`.
-- After tests/review gate are complete and the ready PR is opened or updated, move the task to the actual review status, usually `Ревью` / `Review`.
-- After the PR is merged and the required remote gate/deploy state for the task is satisfied, move the task to the actual done status, usually `Завершено` / `Done`.
+- After tests/review gate are complete and the ready PR is opened or updated, move the task to the actual review status, usually `Ревью` / `Review`. For LevelTravel `LT`, the transition to `Ревью` usually uses screen `431`; pass `--field-json` with `chtosdelanovzadache` and `kakdeploitzadachunastejdzhkakt`.
+- After the PR is merged into `develop`, and no required linked PR for the same task is still open or blocked, the target business status is `Готово к релизу`. If a linked `master` PR is merged, use `Завершено` instead. If Tracker requires intermediate statuses, inspect transitions and follow them, but do not leave the task in `Можно тестировать` or `Assembly` as the final post-merge meaning.
+- After a linked PR for the same task is merged into `master`, the target business status is `Завершено` / `Done`; in this workflow, `master` means shipped.
+- Without a merged `master` PR, move the task to `Завершено` / `Done` only after the required release/deploy condition and any necessary production or business verification are satisfied.
+
+The screen id and field keys below are current LT examples, not a permanent schema contract. Treat `transitions` as the source of truth; if Tracker exposes another screen or required fields change, inspect transitions and existing task examples before guessing field keys.
 
 Before status moves, inspect available transitions when needed:
 
 ```bash
 python3 "$TRACKER_HELPER" transitions LT-123
-python3 "$TRACKER_HELPER" move LT-123 'Ревью' --comment 'PR ready for review: <url>'
+python3 "$TRACKER_HELPER" move LT-123 'Ревью' \
+  --field-json '{"chtosdelanovzadache":"Implemented <summary>. PR: <url>.","kakdeploitzadachunastejdzhkakt":"Deploy/test: <stage steps>. Checks: <real checks>."}' \
+  --comment 'PR ready for review: <url>'
 ```
 
-Follow required intermediate transitions instead of forcing a final status. If a status move is impossible, keep the PR work going only after reporting the exact Tracker blocker.
+Follow required intermediate transitions instead of forcing a final status. If a status move is impossible, keep the PR work going only after reporting the exact Tracker blocker. At final response time, if the task is in `Ревью`, explicitly state the next Tracker action after merge: `develop` only and no required linked PR open/blocked means move to `Готово к релизу`; `master` means move to `Завершено`.
 
 ## Development Loop
 
@@ -200,6 +210,7 @@ Every PR body should include:
 ## Tracker
 - Task: `LT-...`
 - Status: moved to Review / blocked: <reason>
+- Next after merge: `develop` only with no required linked PR open/blocked -> `Готово к релизу`; `master` -> `Завершено`
 
 ## Operational notes
 - Migrations: yes/no

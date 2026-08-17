@@ -32,6 +32,7 @@ container_name="rspec_${run_id}"
 image_name="integration:${run_id}"
 compose_project="${worker_name}-i"
 docker_registry="${DOCKER_REGISTRY:-cr.yandex/crp2b4c44b0t0smqf2nj}"
+rails_builder_tag="${RAILS_BUILDER_TAG:-ruby-3.4.10}"
 mysql_source_image="${MYSQL_IMAGE:-mysql:8.0.22}"
 redis_source_image="${REDIS_IMAGE:-redis:latest}"
 mysql_image="leveltravel-ci-mysql:${run_id}-amd64"
@@ -152,7 +153,8 @@ PROTO_REPO_TOKEN="$proto_repo_token" DOCKER_BUILDKIT=1 \
   docker build --platform linux/amd64 -f "$dockerfile" . \
   -t "$image_name" \
   --secret id=proto_repo_token,env=PROTO_REPO_TOKEN \
-  --build-arg "ECR_REPO=${docker_registry}"
+  --build-arg "ECR_REPO=${docker_registry}" \
+  --build-arg "RAILS_BUILDER_TAG=${rails_builder_tag}"
 
 docker network create "$worker_network"
 network_created=true
