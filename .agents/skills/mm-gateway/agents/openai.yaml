@@ -1,0 +1,4 @@
+interface:
+  display_name: "MM Gateway"
+  short_description: "Read your own Mattermost through mm-gateway (VPN required)"
+  default_prompt: "Use $mm-gateway to catch up on Mattermost — unread channels, a thread, or a search across your conversations."

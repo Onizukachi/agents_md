@@ -1,0 +1,5 @@
+interface:
+  display_name: "Integration Health Check"
+  short_description: "Проверка здоровья сервисов интеграций"
+  default_prompt: "Используй $integration-health-check, чтобы проверить здоровье сервисов интеграций по логам."
+
