@@ -17,21 +17,21 @@
 
 ## 3) Task Routing
 
-| Task | Required guidance |
-|---|---|
-| Rails migrations | `leveltravel-migrations` |
-| Focused or CI-equivalent tests | `leveltravel-tests` |
-| Prepare, push, or open a regular PR | `leveltravel-pr-workflow` |
-| Final read-only review before push or PR update | `leveltravel-pr-review` |
-| Production hotfix with `master` and `develop` PRs | `leveltravel-hotfix-workflow` |
-| Reconcile LevelTravel Tracker tasks after PR work | `leveltravel-tracker-reconcile` |
-| Elasticsearch log investigation | `lvtv-elastic-logs` |
-| Yandex Tracker work | `yandex-tracker` |
-| Redash queries or read-only SQL | `redash-api` |
-| Local LevelTravel Sentry investigation | `sentry-local` |
-| Frontend changes missing after reload/restart | `leveltravel-frontend-asset-recovery` |
-| ActiveAdmin browser check or recovery | `leveltravel-activeadmin-ui-check` |
-| Install, update, export, or compare shared skills | `skill-importer`, `skill-exporter`, or `skills-syncer`, respectively |
+| Task | Skill | Type |
+|---|---|---|
+| Rails migrations | `leveltravel-migrations` | Personal |
+| Focused or CI-equivalent tests | `leveltravel-tests` | LevelTravel |
+| Prepare, push, or open a regular PR | `leveltravel-pr-workflow` | LevelTravel |
+| Final read-only review before push or PR update | `leveltravel-pr-review` | LevelTravel |
+| Production hotfix with `master` and `develop` PRs | `leveltravel-hotfix-workflow` | LevelTravel |
+| Reconcile LevelTravel Tracker tasks after PR work | `leveltravel-tracker-reconcile` | LevelTravel |
+| Elasticsearch log investigation | `lvtv-elastic-logs` | Shared |
+| Yandex Tracker work | `yandex-tracker` | Shared |
+| Redash queries or read-only SQL | `redash-api` | Shared |
+| Local LevelTravel Sentry investigation | `sentry-local` | Shared |
+| Frontend changes missing after reload/restart | `leveltravel-frontend-asset-recovery` | Personal |
+| ActiveAdmin browser check or recovery | `leveltravel-activeadmin-ui-check` | Personal |
+| Install, update, export, or compare shared skills | `skill-importer`, `skill-exporter`, or `skills-syncer`, respectively | Shared |
 | Payment, callback, or receipt flow | `.agents/docs/payments.md` |
 | PAPI v3 route or contract | `.agents/docs/papi_v3_docs.md` |
 
@@ -181,7 +181,7 @@ All applicable MUST rows must be satisfied:
 | Behavior or application code | Related tests pass locally |
 | Database schema | Migration workflow completed; migrations applied; schema changes clean and relevant |
 | PAPI v3 route or contract | Documentation updated in the same PR |
-| Personal agent materials | Changes committed and pushed to `agents_md` |
+| Personal skills or agent materials | Changes committed and pushed to `agents_md` |
 | Push or PR update | Required test, review, and PR workflows completed |
 
 For changed code, also verify where applicable:
