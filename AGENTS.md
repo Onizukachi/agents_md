@@ -26,9 +26,13 @@
 | Production hotfix with `master` and `develop` PRs | `leveltravel-hotfix-workflow` | LevelTravel |
 | Reconcile LevelTravel Tracker tasks after PR work | `leveltravel-tracker-reconcile` | LevelTravel |
 | Elasticsearch log investigation | `lvtv-elastic-logs` | Shared |
+| Integration service health from logs (search, actualization, booking, sync, currency) | `integration-health-check` | Shared |
 | Yandex Tracker work | `yandex-tracker` | Shared |
+| Create a LevelTravel integration task in Tracker | `integration-task` | Shared |
 | Redash queries or read-only SQL | `redash-api` | Shared |
 | Local LevelTravel Sentry investigation | `sentry-local` | Shared |
+| Corporate Yandex Wiki page lookup, export, or summary | `yandex-wiki` | Shared |
+| Read own Mattermost: unread, threads, search, channel history, reactions, attachments | `mm-gateway` | Shared |
 | Frontend changes missing after reload/restart | `leveltravel-frontend-asset-recovery` | Personal |
 | ActiveAdmin browser check or recovery | `leveltravel-activeadmin-ui-check` | Personal |
 | Install, update, export, or compare shared skills | `skill-importer`, `skill-exporter`, or `skills-syncer`, respectively | Shared |
