@@ -40,6 +40,18 @@ mkdir -p "$project_root/.agents"
 link_if_missing '../../agents_md/.agents/docs' "$project_root/.agents/docs"
 link_if_missing '../../agents_md/.agents/tasks' "$project_root/.agents/tasks"
 
+# Mirror the project's own tracked skills (.agents/skills/*, committed to the
+# LevelTravel repository) into .claude/skills, so Claude Code discovers them
+# the same way Codex already does by scanning .agents/skills directly.
+mkdir -p "$project_root/.claude/skills"
+if [ -d "$project_root/.agents/skills" ]; then
+  for project_skill in "$project_root/.agents/skills"/*; do
+    test -e "$project_skill" || continue
+    skill_name="$(basename "$project_skill")"
+    link_if_missing "../../.agents/skills/$skill_name" "$project_root/.claude/skills/$skill_name"
+  done
+fi
+
 mkdir -p "$codex_root/skills"
 mkdir -p "$claude_root/skills"
 for skill in "${personal_skills[@]}"; do
