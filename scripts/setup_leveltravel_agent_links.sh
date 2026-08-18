@@ -44,7 +44,15 @@ mkdir -p "$codex_root/skills"
 mkdir -p "$claude_root/skills"
 for skill in "${personal_skills[@]}"; do
   link_if_missing "$agent_root/.agents/skills/$skill" "$codex_root/skills/$skill"
-  link_if_missing "$agent_root/.agents/skills/$skill" "$claude_root/skills/$skill"
+done
+
+# Mirror every skill already symlinked into Codex (personal skills above, plus
+# any shared skill installed via skill-importer) into Claude Code too, so both
+# runtimes discover the same set without a second per-skill list to maintain.
+for codex_skill in "$codex_root/skills"/*; do
+  test -L "$codex_skill" || continue
+  skill_name="$(basename "$codex_skill")"
+  link_if_missing "$(readlink "$codex_skill")" "$claude_root/skills/$skill_name"
 done
 
 echo 'setup-leveltravel-agent-links: links are ready'
