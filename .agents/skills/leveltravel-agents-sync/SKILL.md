@@ -31,9 +31,9 @@ Never import mirror copies of develop-owned skills into the project.
 `AGENTS.md` is the canonical source of project guidance. Apply instruction
 changes only to `AGENTS.md`.
 
-`CLAUDE.md` must remain a thin, fixed pointer that imports `AGENTS.md`. Do not
-duplicate project guidance in it. The sync script refuses to pull, check, or
-publish an overlay when `CLAUDE.md` differs from the expected pointer content.
+`CLAUDE.md` must be a symbolic link to `AGENTS.md`. Do not duplicate project
+guidance in it. The sync script refuses to pull, check, or publish an overlay
+when the link target differs.
 
 ## Local Excludes
 
