@@ -32,8 +32,6 @@
 | Frontend changes missing after reload/restart | `leveltravel-frontend-asset-recovery` | Personal |
 | ActiveAdmin browser check or recovery | `leveltravel-activeadmin-ui-check` | Personal |
 | Install, update, export, or compare shared skills | `skill-importer`, `skill-exporter`, or `skills-syncer`, respectively | Shared |
-| Payment, callback, or receipt flow | `.agents/docs/payments.md` |
-| PAPI v3 route or contract | `.agents/docs/papi_v3_docs.md` |
 
 If no route matches, follow this document and proceed directly; do not invent a skill.
 
