@@ -7,12 +7,6 @@ project_root="${1:-$agent_root/../leveltravel}"
 codex_root="${CODEX_HOME:-$HOME/.codex}"
 claude_root="${CLAUDE_HOME:-$HOME/.claude}"
 
-personal_skills=(
-  'leveltravel-migrations'
-  'leveltravel-frontend-asset-recovery'
-  'leveltravel-activeadmin-ui-check'
-)
-
 die() {
   echo "setup-leveltravel-agent-links: $*" >&2
   exit 1
@@ -54,9 +48,13 @@ fi
 
 mkdir -p "$codex_root/skills"
 mkdir -p "$claude_root/skills"
-for skill in "${personal_skills[@]}"; do
-  link_if_missing "$agent_root/.agents/skills/$skill" "$codex_root/skills/$skill"
-done
+if [ -d "$agent_root/.agents/skills" ]; then
+  for personal_skill in "$agent_root/.agents/skills"/*; do
+    test -e "$personal_skill" || continue
+    skill_name="$(basename "$personal_skill")"
+    link_if_missing "$personal_skill" "$codex_root/skills/$skill_name"
+  done
+fi
 
 # Mirror every skill already symlinked into Codex (personal skills above, plus
 # any shared skill installed via skill-importer) into Claude Code too, so both

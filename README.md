@@ -11,10 +11,8 @@
 - `CLAUDE.md` — симлинк на `AGENTS.md`.
 - `.agents/docs/` — дополнительная проектная документация для агентов.
 - `.agents/tasks/` — явно созданные task artifacts.
-- `.agents/skills/` — личные skills:
-  - `leveltravel-migrations`;
-  - `leveltravel-frontend-asset-recovery`;
-  - `leveltravel-activeadmin-ui-check`.
+- `.agents/skills/` — личные skills; каждая подпапка линкуется целиком, без
+  отдельного списка.
 - `scripts/setup_leveltravel_agent_links.sh` — настройка симлинков на новой
   машине.
 
