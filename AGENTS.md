@@ -13,7 +13,7 @@
 - Domain: travel.
 - The product is a travel aggregator, not a tour operator.
 - Participants can search, book, and purchase tours and hotels.
-- Stack: Ruby 3.1, Rails 6.1, PostgreSQL, Redis, Sidekiq, and RSpec.
+- Stack: Ruby 3.4.10, Rails 7.2, PostgreSQL, Redis, Sidekiq, and RSpec.
 
 ## 3) Task Routing
 
