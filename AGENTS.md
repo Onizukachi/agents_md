@@ -36,6 +36,8 @@
 
 If no route matches, follow this document and proceed directly; do not invent a skill.
 
+Note: `lvtv-elastic-logs` autostart can fail with `connect: connection refused` on the Boundary tunnel because the local `boundary` CLI has no `BOUNDARY_ADDR` in the shell env. Fix: run `boundary connect -addr https://bnd.lvtv.me -target-id <id> -listen-port <port>` manually (get `<id>` from `boundary targets list -addr https://bnd.lvtv.me -recursive`) to open the tunnel, then retry the skill's script with `LVTV_LOGS_BOUNDARY_AUTOSTART=0`.
+
 ## 4) Agent Materials
 
 `AGENTS.md`, `CLAUDE.md`, `.agents/docs/`, and `.agents/tasks/` are symbolic
