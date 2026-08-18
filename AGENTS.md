@@ -30,12 +30,15 @@
 | Local LevelTravel Sentry investigation | `.agents/skills/sentry-local` |
 | Frontend changes missing after reload/restart | `.agents/skills/leveltravel-frontend-asset-recovery` |
 | ActiveAdmin browser check or recovery | `.agents/skills/leveltravel-activeadmin-ui-check` |
-| Change or synchronize `AGENTS.md`, `CLAUDE.md`, or `.agents/` | `.agents/skills/leveltravel-agents-sync` |
+| Change or synchronize `AGENTS.md` or `.agents/` | `.agents/skills/leveltravel-agents-sync` |
 | Install/update, export, or compare shared skills | `.agents/skills/skill-importer`, `skill-exporter`, or `skills-syncer`, respectively |
 | Payment, callback, or receipt flow | `.agents/docs/payments.md` |
 | PAPI v3 route or contract | `.agents/docs/papi_v3_docs.md` |
 
 If no route matches, follow this document and proceed directly; do not invent a skill.
+
+For changes to `AGENTS.md` or `.agents/`, complete the sync skill's `publish`
+and `check` commands; the change is not complete until both succeed.
 
 ## 4) Project Invariants
 
@@ -56,7 +59,7 @@ If no route matches, follow this document and proceed directly; do not invent a 
 
 ## 5) Architecture and File Placement
 
-Prefer Rails conventions and simple, maintainable code. Use business names such as `Participant` or `Cloud`, not generic technical placeholders such as `User` or `GeneratedImage`.
+Prefer Rails conventions and simple, maintainable code. Use business names such as `Tour`, `Hotel`, or `Order`, not generic technical placeholders such as `Data` or `Result`.
 
 Keep responsibilities separated:
 
@@ -175,7 +178,7 @@ All applicable MUST rows must be satisfied:
 | Behavior or application code | Related tests pass locally |
 | Database schema | Migration workflow completed; migrations applied; schema changes clean and relevant |
 | PAPI v3 route or contract | Documentation updated in the same PR |
-| `AGENTS.md`, `CLAUDE.md`, or `.agents/` | Agent mirror synchronized through `leveltravel-agents-sync` |
+| `AGENTS.md` or `.agents/` | `leveltravel-agents-sync` completed with successful `publish` and `check` |
 | Push or PR update | Required test, review, and PR workflows completed |
 
 For changed code, also verify where applicable:
