@@ -1,4 +1,0 @@
-interface:
-  display_name: "LevelTravel Tests"
-  short_description: "Run the architecture-aware local Rails gate"
-  default_prompt: "Use $leveltravel-tests to run scripts/local_rspec.sh, report native ARM64 separately from TeamCity-compatible amd64, and require remote TeamCity rails-rspec as the authoritative parity gate before merge."

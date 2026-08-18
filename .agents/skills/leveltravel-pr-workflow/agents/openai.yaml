@@ -1,7 +1,0 @@
-interface:
-  display_name: "LevelTravel PR Workflow"
-  short_description: "Prepare LevelTravel Tracker tasks and PRs safely"
-  default_prompt: "Use $leveltravel-pr-workflow to create or reuse the Tracker task, refresh develop, keep the branch isolated, run the architecture-aware local full gate and PR review, open a ready PR, and require remote TeamCity rails-rspec before merge."
-
-policy:
-  allow_implicit_invocation: true

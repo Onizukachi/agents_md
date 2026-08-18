@@ -19,28 +19,36 @@
 
 | Task | Required guidance |
 |---|---|
-| Rails migrations | `.agents/skills/leveltravel-migrations` |
-| Focused or CI-equivalent tests | `.agents/skills/leveltravel-tests` |
-| Prepare, push, or open a regular PR | `.agents/skills/leveltravel-pr-workflow` |
-| Final read-only review before push or PR update | `.agents/skills/leveltravel-pr-review` |
-| Production hotfix with `master` and `develop` PRs | `.agents/skills/leveltravel-hotfix-workflow` |
-| Elasticsearch log investigation | `.agents/skills/lvtv-elastic-logs` |
-| Yandex Tracker work | `.agents/skills/yandex-tracker` |
-| Redash queries or read-only SQL | `.agents/skills/redash-api` |
-| Local LevelTravel Sentry investigation | `.agents/skills/sentry-local` |
-| Frontend changes missing after reload/restart | `.agents/skills/leveltravel-frontend-asset-recovery` |
-| ActiveAdmin browser check or recovery | `.agents/skills/leveltravel-activeadmin-ui-check` |
-| Change or synchronize `AGENTS.md` or `.agents/` | `.agents/skills/leveltravel-agents-sync` |
-| Install/update, export, or compare shared skills | `.agents/skills/skill-importer`, `skill-exporter`, or `skills-syncer`, respectively |
+| Rails migrations | Personal Codex skill `leveltravel-migrations` |
+| Focused or CI-equivalent tests | LevelTravel repository skill `leveltravel-tests` |
+| Prepare, push, or open a regular PR | LevelTravel repository skill `leveltravel-pr-workflow` |
+| Final read-only review before push or PR update | LevelTravel repository skill `leveltravel-pr-review` |
+| Production hotfix with `master` and `develop` PRs | LevelTravel repository skill `leveltravel-hotfix-workflow` |
+| Reconcile LevelTravel Tracker tasks after PR work | LevelTravel repository skill `leveltravel-tracker-reconcile` |
+| Elasticsearch log investigation | Shared Codex skill `lvtv-elastic-logs` |
+| Yandex Tracker work | Shared Codex skill `yandex-tracker` |
+| Redash queries or read-only SQL | Shared Codex skill `redash-api` |
+| Local LevelTravel Sentry investigation | Shared Codex skill `sentry-local` |
+| Frontend changes missing after reload/restart | Personal Codex skill `leveltravel-frontend-asset-recovery` |
+| ActiveAdmin browser check or recovery | Personal Codex skill `leveltravel-activeadmin-ui-check` |
+| Install, update, export, or compare shared skills | Shared Codex skills `skill-importer`, `skill-exporter`, or `skills-syncer`, respectively |
 | Payment, callback, or receipt flow | `.agents/docs/payments.md` |
 | PAPI v3 route or contract | `.agents/docs/papi_v3_docs.md` |
 
 If no route matches, follow this document and proceed directly; do not invent a skill.
 
-For changes to `AGENTS.md` or `.agents/`, complete the sync skill's `publish`
-and `check` commands; the change is not complete until both succeed.
+## 4) Agent Materials
 
-## 4) Project Invariants
+`AGENTS.md`, `CLAUDE.md`, `.agents/docs/`, and `.agents/tasks/` are symbolic
+links to the personal `agents_md` checkout. Edit them through those links; do
+not replace them with local copies or synchronize them with a copy workflow.
+
+Personal Codex skills are installed as symbolic links from `agents_md` into the
+global Codex skills directory. Shared skills are installed there from the shared
+`skills` repository. LevelTravel repository skills are tracked in
+`.agents/skills/` and sourced from `origin/develop`.
+
+## 5) Project Invariants
 
 ### Dependencies
 
@@ -57,7 +65,7 @@ and `check` commands; the change is not complete until both succeed.
 - Treat `use_advanced_receipts` and `new_payments_architecture` as always `true`.
 - These flags are legacy; do not implement or rely on their `false` behavior.
 
-## 5) Architecture and File Placement
+## 6) Architecture and File Placement
 
 Prefer Rails conventions and simple, maintainable code. Use business names such as `Tour`, `Hotel`, or `Order`, not generic technical placeholders such as `Data` or `Result`.
 
@@ -82,7 +90,7 @@ Use these locations:
 | Sidekiq workers | `app/workers/` |
 | API serializers | `app/serializers/` |
 
-## 6) Rails Conventions
+## 7) Rails Conventions
 
 ### Models and data
 
@@ -152,7 +160,7 @@ Keep `app/admin/*.rb` blocks in this order:
 - Use RSpec.
 - Prefer `let_it_be` or `let_it_be_with_reload` when they improve suite speed and clarity.
 
-## 7) Domain-Specific Guidance
+## 8) Domain-Specific Guidance
 
 ### Payments
 
@@ -163,13 +171,13 @@ Follow `.agents/docs/payments.md` for order, payment, callback, and receipt flow
 - Follow `.agents/docs/papi_v3_docs.md` for route and contract changes.
 - Keep PAPI v3 documentation synchronized in the same PR as the code.
 
-## 8) Task Artifacts
+## 9) Task Artifacts
 
 - Task artifacts live in `.agents/tasks/` as `task-<number>.md`.
 - Look there when the user mentions an artifact.
 - Create an artifact only when the user explicitly requests one.
 
-## 9) Conditional Definition of Done
+## 10) Conditional Definition of Done
 
 All applicable MUST rows must be satisfied:
 
@@ -178,7 +186,7 @@ All applicable MUST rows must be satisfied:
 | Behavior or application code | Related tests pass locally |
 | Database schema | Migration workflow completed; migrations applied; schema changes clean and relevant |
 | PAPI v3 route or contract | Documentation updated in the same PR |
-| `AGENTS.md` or `.agents/` | `leveltravel-agents-sync` completed with successful `publish` and `check` |
+| Personal agent materials | Changes committed and pushed to `agents_md` |
 | Push or PR update | Required test, review, and PR workflows completed |
 
 For changed code, also verify where applicable:

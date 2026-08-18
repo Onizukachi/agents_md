@@ -1,4 +1,0 @@
-interface:
-  display_name: "Yandex Wiki"
-  short_description: "Read Level Travel Yandex Wiki through the Wiki API."
-  default_prompt: "Use Yandex Wiki to find and summarize internal documentation."

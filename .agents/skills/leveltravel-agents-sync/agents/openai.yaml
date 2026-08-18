@@ -1,4 +1,0 @@
-interface:
-  display_name: "LevelTravel Agents Sync"
-  short_description: "Sync LevelTravel agent files safely"
-  default_prompt: "Use $leveltravel-agents-sync to safely pull, publish, or check the LevelTravel agent mirror without changing develop-owned skills."

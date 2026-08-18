@@ -1,4 +1,0 @@
-interface:
-  display_name: "Integration Task"
-  short_description: "Create LevelTravel integration tasks"
-  default_prompt: "Use $integration-task to create a LevelTravel integration task in Yandex Tracker from this context."
