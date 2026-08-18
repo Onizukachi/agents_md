@@ -19,19 +19,19 @@
 
 | Task | Required guidance |
 |---|---|
-| Rails migrations | Personal Codex skill `leveltravel-migrations` |
-| Focused or CI-equivalent tests | LevelTravel repository skill `leveltravel-tests` |
-| Prepare, push, or open a regular PR | LevelTravel repository skill `leveltravel-pr-workflow` |
-| Final read-only review before push or PR update | LevelTravel repository skill `leveltravel-pr-review` |
-| Production hotfix with `master` and `develop` PRs | LevelTravel repository skill `leveltravel-hotfix-workflow` |
-| Reconcile LevelTravel Tracker tasks after PR work | LevelTravel repository skill `leveltravel-tracker-reconcile` |
-| Elasticsearch log investigation | Shared Codex skill `lvtv-elastic-logs` |
-| Yandex Tracker work | Shared Codex skill `yandex-tracker` |
-| Redash queries or read-only SQL | Shared Codex skill `redash-api` |
-| Local LevelTravel Sentry investigation | Shared Codex skill `sentry-local` |
-| Frontend changes missing after reload/restart | Personal Codex skill `leveltravel-frontend-asset-recovery` |
-| ActiveAdmin browser check or recovery | Personal Codex skill `leveltravel-activeadmin-ui-check` |
-| Install, update, export, or compare shared skills | Shared Codex skills `skill-importer`, `skill-exporter`, or `skills-syncer`, respectively |
+| Rails migrations | `leveltravel-migrations` |
+| Focused or CI-equivalent tests | `leveltravel-tests` |
+| Prepare, push, or open a regular PR | `leveltravel-pr-workflow` |
+| Final read-only review before push or PR update | `leveltravel-pr-review` |
+| Production hotfix with `master` and `develop` PRs | `leveltravel-hotfix-workflow` |
+| Reconcile LevelTravel Tracker tasks after PR work | `leveltravel-tracker-reconcile` |
+| Elasticsearch log investigation | `lvtv-elastic-logs` |
+| Yandex Tracker work | `yandex-tracker` |
+| Redash queries or read-only SQL | `redash-api` |
+| Local LevelTravel Sentry investigation | `sentry-local` |
+| Frontend changes missing after reload/restart | `leveltravel-frontend-asset-recovery` |
+| ActiveAdmin browser check or recovery | `leveltravel-activeadmin-ui-check` |
+| Install, update, export, or compare shared skills | `skill-importer`, `skill-exporter`, or `skills-syncer`, respectively |
 | Payment, callback, or receipt flow | `.agents/docs/payments.md` |
 | PAPI v3 route or contract | `.agents/docs/papi_v3_docs.md` |
 
@@ -42,11 +42,6 @@ If no route matches, follow this document and proceed directly; do not invent a 
 `AGENTS.md`, `CLAUDE.md`, `.agents/docs/`, and `.agents/tasks/` are symbolic
 links to the personal `agents_md` checkout. Edit them through those links; do
 not replace them with local copies or synchronize them with a copy workflow.
-
-Personal Codex skills are installed as symbolic links from `agents_md` into the
-global Codex skills directory. Shared skills are installed there from the shared
-`skills` repository. LevelTravel repository skills are tracked in
-`.agents/skills/` and sourced from `origin/develop`.
 
 ## 5) Project Invariants
 
