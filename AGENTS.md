@@ -24,11 +24,8 @@
 | Prepare, push, or open a regular PR | `leveltravel-pr-workflow` | LevelTravel |
 | Final read-only review before push or PR update | `leveltravel-pr-review` | LevelTravel |
 | Production hotfix with `master` and `develop` PRs | `leveltravel-hotfix-workflow` | LevelTravel |
-| Reconcile LevelTravel Tracker tasks after PR work | `leveltravel-tracker-reconcile` | LevelTravel |
 | Elasticsearch log investigation | `lvtv-elastic-logs` | Shared |
-| Integration service health from logs (search, actualization, booking, sync, currency) | `integration-health-check` | Shared |
 | Yandex Tracker work | `yandex-tracker` | Shared |
-| Create a LevelTravel integration task in Tracker | `integration-task` | Shared |
 | Redash queries or read-only SQL | `redash-api` | Shared |
 | Local LevelTravel Sentry investigation | `sentry-local` | Shared |
 | Corporate Yandex Wiki page lookup, export, or summary | `yandex-wiki` | Shared |
