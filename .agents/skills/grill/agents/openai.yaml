@@ -1,0 +1,4 @@
+interface:
+  display_name: "Grill"
+  short_description: "Align on scope with a quick interview before big/ambiguous work"
+  default_prompt: "Use $grill to run a short alignment interview before starting a large or ambiguous task."
