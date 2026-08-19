@@ -65,7 +65,7 @@ copy workflow.
 
 ## 6) Architecture and File Placement
 
-Prefer Rails conventions and simple, maintainable code. Use business names such as `Tour`, `Hotel`, or `Order`, not generic technical placeholders such as `Data` or `Result`.
+Prefer Rails conventions and simple, maintainable code. Use business names such as `Package`, `Hotel`, or `Order`, not generic technical placeholders such as `Data` or `Result`.
 
 Keep responsibilities separated:
 
