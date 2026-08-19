@@ -1,9 +1,11 @@
 ---
 name: grill
-description: Grill the user relentlessly about a plan, decision, or idea before starting a large or ambiguous task. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
+description: Grill the user relentlessly about a plan, decision, or idea before starting a large or ambiguous task, sharpening the project's domain vocabulary in CONTEXT.md as you go. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
 ---
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
+
+Also call the Skill tool for `domain-modeling` at the start of the session, and apply its discipline throughout: challenge fuzzy or conflicting terms as they come up, and capture each resolved term into `CONTEXT.md` inline the moment it crystallizes - don't wait until the interview ends.
 
 Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
 
