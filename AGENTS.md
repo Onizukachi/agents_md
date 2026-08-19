@@ -3,7 +3,6 @@
 ## 1) Quick Start
 
 - Use the task-routing table below before starting specialized work.
-- Before starting a large or ambiguous task - a new feature spanning multiple models/services/workers, a payments/schema/PAPI v3 change, or requirements with more than one reasonable reading - offer a short `grill` alignment round before writing code. Skip it for focused fixes, small tweaks, or a precisely specified task.
 - Before any LT command, run `source ./lt.sh`, then use the loaded `lt` function.
 - Run every Rails command inside the Rails container: enter it with `lt sh` first.
 - Background jobs are Sidekiq workers in `app/workers/`, not ActiveJob classes; there is no `app/jobs/`.

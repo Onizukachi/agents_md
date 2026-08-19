@@ -1,6 +1,7 @@
 ---
 name: grill
-description: Propose and run a short alignment interview before starting a large or ambiguous task - a new feature spanning multiple models/services, a payments/schema/PAPI v3 change, or requirements with more than one reasonable reading. Ask in rounds, dig up facts yourself, stop once every open branch is resolved.
+description: Run a short alignment interview before starting a large or ambiguous task - a new feature spanning multiple models/services, a payments/schema/PAPI v3 change, or requirements with more than one reasonable reading. Ask in rounds, dig up facts yourself, stop once every open branch is resolved.
+disable-model-invocation: true
 ---
 
 # Grill
@@ -16,15 +17,7 @@ Offer a grill round when the task has any of:
 - Requirements with more than one reasonable interpretation.
 - Scope large enough that an assumption made now is expensive to unwind later.
 
-Skip it for focused bug fixes, small tweaks, or a task the user already specified precisely (exact files, exact behavior).
-
-## Propose first, don't just start
-
-If the user didn't explicitly ask for a grill session, don't launch straight into rounds of questions. In one or two sentences, say why the task looks big or ambiguous and ask whether they want a short alignment pass first, e.g.:
-
-> "This touches both the payment callback flow and the receipt worker - a couple of decisions here are expensive to reverse. Want a quick round of questions before I start, or should I go with my best judgment?"
-
-If they decline or are AFK, proceed with your best judgment per the project's default working mode. If they agree, or if they invoked this skill directly, run the interview below.
+Skip it for focused bug fixes, small tweaks, or a task the user already specified precisely (exact files, exact behavior). The user decides when to call it - don't offer it unprompted.
 
 ## The interview
 
