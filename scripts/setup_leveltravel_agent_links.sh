@@ -40,6 +40,7 @@ test -d "$project_root/.git" || die "not a LevelTravel checkout: $project_root"
 
 link_if_missing '../agents_md/AGENTS.md' "$project_root/AGENTS.md"
 link_if_missing 'AGENTS.md' "$project_root/CLAUDE.md"
+link_if_missing '../agents_md/CONTEXT.md' "$project_root/CONTEXT.md"
 mkdir -p "$project_root/.agents"
 link_if_missing '../../agents_md/.agents/docs' "$project_root/.agents/docs"
 link_if_missing '../../agents_md/.agents/tasks' "$project_root/.agents/tasks"
@@ -61,6 +62,7 @@ fi
 # file rather than through a tracked .gitignore.
 exclude_if_missing '/AGENTS.md'
 exclude_if_missing '/CLAUDE.md'
+exclude_if_missing '/CONTEXT.md'
 exclude_if_missing '/.agents/docs'
 exclude_if_missing '/.agents/tasks'
 exclude_if_missing '/.claude/skills'

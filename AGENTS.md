@@ -14,12 +14,14 @@
 - The product is a travel aggregator, not a tour operator.
 - Participants can search, book, and purchase tours and hotels.
 - Stack: Ruby 3.4.10, Rails 7.2, PostgreSQL, Redis, Sidekiq, and RSpec.
+- If `CONTEXT.md` exists at the repo root, read it for domain vocabulary and keep new code and discussion consistent with it.
 
 ## 3) Task Routing
 
 | Task | Skill | Type |
 |---|---|---|
 | Large or ambiguous task, before implementation starts | `grill` | Personal |
+| Codebase terminology, or writing/editing `CONTEXT.md` | `domain-modeling` | Personal |
 | Rails migrations | `leveltravel-migrations` | Personal |
 | Focused or CI-equivalent tests | `leveltravel-tests` | LevelTravel |
 | Prepare, push, or open a regular PR | `leveltravel-pr-workflow` | LevelTravel |
@@ -39,9 +41,10 @@ If no route matches, follow this document and proceed directly; do not invent a 
 
 ## 4) Agent Materials
 
-`AGENTS.md`, `CLAUDE.md`, `.agents/docs/`, and `.agents/tasks/` are symbolic
-links to the personal `agents_md` checkout. Edit them through those links; do
-not replace them with local copies or synchronize them with a copy workflow.
+`AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`, `.agents/docs/`, and `.agents/tasks/`
+are symbolic links to the personal `agents_md` checkout. Edit them through
+those links; do not replace them with local copies or synchronize them with a
+copy workflow.
 
 ## 5) Project Invariants
 

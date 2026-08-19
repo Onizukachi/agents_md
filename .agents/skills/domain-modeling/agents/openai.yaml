@@ -1,0 +1,4 @@
+interface:
+  display_name: "Domain Modeling"
+  short_description: "Build and maintain this project's CONTEXT.md domain glossary"
+  default_prompt: "Use $domain-modeling to challenge terminology and update CONTEXT.md as we design."
