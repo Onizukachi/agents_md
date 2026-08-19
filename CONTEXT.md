@@ -27,3 +27,11 @@ _Avoid_: Tour, Booking (except when quoting user-facing copy)
 **Matcher**:
 A component that reconciles LevelTravel's own records (hotels, meal plans, travelers) against the equivalent data supplied by an external Operator.
 _Avoid_: Sync, Mapper, Integration
+
+**Operator Organization**:
+The legal entity of an external Operator that contracts with LevelTravel and is recorded as the supplier on a Package. An Operator may have several; one is marked as its main entity.
+_Avoid_: Organization, Supplier, Legal entity
+
+**Departure**:
+The city a Package's flight leaves from, chosen by the Client at search time.
+_Avoid_: Origin, From city, Departure country
