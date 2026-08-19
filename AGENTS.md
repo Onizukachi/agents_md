@@ -23,8 +23,6 @@
 | Large or ambiguous task, before implementation starts | `grill` | Personal |
 | Codebase terminology, or writing/editing `CONTEXT.md` | `domain-modeling` | Personal |
 | Rails migrations | `leveltravel-migrations` | Personal |
-| Focused or CI-equivalent tests | `leveltravel-tests` | LevelTravel |
-| Prepare, push, or open a regular PR | `leveltravel-pr-workflow` | LevelTravel |
 | Final read-only review before push or PR update | `leveltravel-pr-review` | LevelTravel |
 | Production hotfix with `master` and `develop` PRs | `leveltravel-hotfix-workflow` | LevelTravel |
 | Elasticsearch log investigation | `lvtv-elastic-logs` | Shared |
