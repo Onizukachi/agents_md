@@ -20,6 +20,7 @@
 
 | Task | Skill | Type |
 |---|---|---|
+| Full multi-agent development cycle: approved plan, implementation, tests, and repeat independent reviews | `parallel-plan-implementation` | Personal |
 | Large or ambiguous task, before implementation starts | `grill` | Personal |
 | Codebase terminology, or writing/editing `CONTEXT.md` | `domain-modeling` | Personal |
 | Rails migrations | `leveltravel-migrations` | Personal |
