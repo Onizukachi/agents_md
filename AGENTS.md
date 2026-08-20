@@ -24,7 +24,7 @@
 | Codebase terminology, or writing/editing `CONTEXT.md` | `domain-modeling` | Personal |
 | Rails migrations | `leveltravel-migrations` | Personal |
 | Final read-only review before push or PR update | `leveltravel-pr-review` | LevelTravel |
-| Production hotfix with `master` and `develop` PRs | `leveltravel-hotfix-workflow` | LevelTravel |
+| Production hotfix with `master` and `develop` PRs (skip all Yandex Tracker steps) | `leveltravel-hotfix-workflow` | LevelTravel |
 | Elasticsearch log investigation | `lvtv-elastic-logs` | Shared |
 | Yandex Tracker work | `yandex-tracker` | Shared |
 | Redash queries or read-only SQL | `redash-api` | Shared |
@@ -36,6 +36,10 @@
 | Install, update, export, or compare shared skills | `skill-importer`, `skill-exporter`, or `skills-syncer`, respectively | Shared |
 
 If no route matches, follow this document and proceed directly; do not invent a skill.
+
+For `leveltravel-hotfix-workflow`, do not use `yandex-tracker` and skip every
+Tracker-related action: task lookup or creation, status transitions, comments,
+and Tracker links in pull-request descriptions or final reports.
 
 ## 4) Agent Materials
 
