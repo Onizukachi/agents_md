@@ -37,10 +37,6 @@
 
 If no route matches, follow this document and proceed directly; do not invent a skill.
 
-For `leveltravel-hotfix-workflow`, do not use `yandex-tracker` and skip every
-Tracker-related action: task lookup or creation, status transitions, comments,
-and Tracker links in pull-request descriptions or final reports.
-
 ## 4) Agent Materials
 
 `AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`, `.agents/docs/`, and `.agents/tasks/`
