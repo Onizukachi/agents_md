@@ -79,6 +79,8 @@ Use these locations:
 
 | Code | Location |
 |---|---|
+| Main customer frontend | `../lt-frontend/apps/leveltravel/` |
+| White-label customer frontend | `../lt-frontend/apps/wl/` |
 | ActiveAdmin resources/controllers | `app/admin/` |
 | External integrations | `app/apis/` |
 | Query objects | `app/queries/` |
@@ -86,6 +88,8 @@ Use these locations:
 | Business services | `app/services/` |
 | Sidekiq workers | `app/workers/` |
 | API serializers | `app/serializers/` |
+
+Always look for customer-facing frontend code in the adjacent `../lt-frontend/` repository. Frontend code in this repository is current only for the manager interface and ActiveAdmin.
 
 ## 7) Rails Conventions
 
