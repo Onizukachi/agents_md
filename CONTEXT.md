@@ -35,3 +35,27 @@ _Avoid_: Organization, Supplier, Legal entity
 **Departure**:
 The city a Package's flight leaves from, chosen by the Client at search time.
 _Avoid_: Origin, From city, Departure country
+
+**Registry File**:
+A reconciliation file a partner uploads describing what LevelTravel owes or is owed on their orders, processed row-by-row into Partner Operations.
+_Avoid_: Report, Upload
+
+**Partner Operation**:
+One row of a processed Registry File, recording an order, a cost, and (optionally) the Payment it reconciles against.
+_Avoid_: Registry entry, Transaction
+
+**Accounting Date**:
+An administrative date entered by staff on a Registry File marking which accounting period it belongs to; it drives no processing logic and is distinct from a Partner Operation's own Repo Date.
+_Avoid_: Reporting date, Period, Repo date
+
+**Repo Date**:
+The date of the underlying operation as reported in a partner's Registry File, stored per Partner Operation.
+_Avoid_: Accounting date, Transaction date
+
+**Order-Based Registry**:
+A Registry File whose rows already carry the order's own ID and commission amount, so the matching order never needs to be looked up.
+_Avoid_: Transaction-based registry (its opposite, not yet named in code)
+
+**Universal Registry**:
+The "Сверка Партнёры" Registry File format filed under partner_id 6, whose rows can belong to several different real partners; each Partner Operation's partner is resolved from its order, not from the uploading partner.
+_Avoid_: Multi-partner file, Getblogger file
