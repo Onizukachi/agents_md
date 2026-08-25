@@ -8,8 +8,7 @@ LevelTravel is a travel aggregator: it searches, books, and sells travel Package
 
 - Before any LT command, run `source ./lt.sh`, then use the loaded `lt` function.
 - Run every Rails command inside the Rails container: enter it with `lt sh` first.
-- Run tests with `bundle exec rspec` inside the Rails container. Ignore the `leveltravel-tests` skill entirely, including when another skill requires it; the remote TeamCity `rails-rspec` build stays the authoritative gate before merge.
-- Check available skills before starting specialized work; if none matches, proceed directly per this document.
+- Run tests with `bundle exec rspec` inside the Rails container. Ignore the `leveltravel-tests` skill entirely.
 - Apply the Definition of Done (end of this document) before considering a change finished.
 
 ## 3) Task Routing
