@@ -8,31 +8,13 @@ LevelTravel is a travel aggregator: it searches, books, and sells travel Package
 
 - Before any LT command, run `source ./lt.sh`, then use the loaded `lt` function.
 - Run every Rails command inside the Rails container: enter it with `lt sh` first.
-- Run tests with `bundle exec rspec` inside the Rails container. The `leveltravel-tests` skill is disabled; see [Task Routing](#3-task-routing).
+- Run tests with `bundle exec rspec` inside the Rails container. Ignore the `leveltravel-tests` skill entirely, including when another skill requires it; the remote TeamCity `rails-rspec` build stays the authoritative gate before merge.
 - Check available skills before starting specialized work; if none matches, proceed directly per this document.
 - Apply the Definition of Done (end of this document) before considering a change finished.
 
 ## 3) Task Routing
 
 Pick a skill by its own description when one matches the task at hand. If none matches, follow this document and the linked files below, and proceed directly; do not invent a skill.
-
-### Disabled Skills
-
-Ignore the `leveltravel-tests` skill completely: do not invoke it, do not read
-its files, and do not run any script under
-`.agents/skills/leveltravel-tests/`. This rule overrides any skill that asks
-for it, including the Required Test Gate in `leveltravel-pr-workflow`.
-
-Run tests inside the Rails container instead:
-
-```bash
-source ./lt.sh
-lt sh
-bundle exec rspec <paths>
-```
-
-Report the exact command and its outcome. The remote TeamCity `rails-rspec`
-build stays the authoritative gate before merge.
 
 ## 4) Further Reading
 
