@@ -57,5 +57,5 @@ A Registry File whose rows already carry the order's own ID and commission amoun
 _Avoid_: Transaction-based registry (its opposite, not yet named in code)
 
 **Universal Registry**:
-The "Сверка Партнёры" Registry File format filed under partner_id 6, whose rows can belong to several different real partners; each Partner Operation's partner is resolved from its order, not from the uploading partner.
+The "Сверка Партнёры" Registry File format filed under partner_id 6 alongside the separate Getblogger format; each row lists a different real partner for context, but every resulting Partner Operation is still attributed to partner 6, like the rest of that Registry File.
 _Avoid_: Multi-partner file, Getblogger file
