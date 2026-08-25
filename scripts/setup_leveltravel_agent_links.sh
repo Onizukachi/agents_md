@@ -6,7 +6,6 @@ agent_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 project_root="${1:-$agent_root/../leveltravel}"
 codex_root="${CODEX_HOME:-$HOME/.codex}"
 claude_root="${CLAUDE_HOME:-$HOME/.claude}"
-skills_root="${SKILLS_REPO:-$agent_root/../skills}"
 
 die() {
   echo "setup-leveltravel-agent-links: $*" >&2
@@ -67,6 +66,10 @@ exclude_if_missing '/.agents/docs'
 exclude_if_missing '/.agents/tasks'
 exclude_if_missing '/.claude/skills'
 
+# Personal skills (this checkout) go straight into both runtimes. Registry-distributed
+# skills (integration-*, mm-gateway, yandex-*, etc.) are installed and kept current by
+# `lt-skills sync` instead, which writes its own copies into both directories below —
+# this script must not symlink or otherwise manage them.
 mkdir -p "$codex_root/skills"
 mkdir -p "$claude_root/skills"
 if [ -d "$agent_root/.agents/skills" ]; then
@@ -74,38 +77,8 @@ if [ -d "$agent_root/.agents/skills" ]; then
     test -e "$personal_skill" || continue
     skill_name="$(basename "$personal_skill")"
     link_if_missing "$personal_skill" "$codex_root/skills/$skill_name"
+    link_if_missing "$personal_skill" "$claude_root/skills/$skill_name"
   done
 fi
-
-# Shared skills live in their own checkout (git@github.com:LevelTravel/skills.git).
-# Link everything it publishes: the repository is the single source of truth, so no
-# per-skill list is maintained here and a new shared skill needs only a git pull.
-# Without this, shared skills were reachable only through skill-importer, which is
-# itself a shared skill and therefore unavailable on a fresh machine.
-if [ -d "$skills_root/skills" ]; then
-  for shared_skill in "$skills_root/skills"/*; do
-    test -f "$shared_skill/SKILL.md" || continue
-    skill_name="$(basename "$shared_skill")"
-    link_if_missing "$(cd "$shared_skill" && pwd -P)" "$codex_root/skills/$skill_name"
-  done
-else
-  echo "setup-leveltravel-agent-links: no shared skills checkout at $skills_root, skipping shared skills" >&2
-fi
-
-# Mirror every skill available to Codex (personal and shared above, plus anything
-# installed by hand) into Claude Code too, so both runtimes discover the same set
-# without a second per-skill list to maintain. Copied skills are linked by path,
-# not just symlinked ones. Codex's own `.system` skills stay out: the glob skips
-# dotted names.
-for codex_skill in "$codex_root/skills"/*; do
-  test -d "$codex_skill" || continue
-  skill_name="$(basename "$codex_skill")"
-  if test -L "$codex_skill"; then
-    mirror_target="$(readlink "$codex_skill")"
-  else
-    mirror_target="$codex_skill"
-  fi
-  link_if_missing "$mirror_target" "$claude_root/skills/$skill_name"
-done
 
 echo 'setup-leveltravel-agent-links: links are ready'
