@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement the work described by SPEC.md and/or the tickets for a task under `.agents/tasks/<number>/`.
+description: Implement the work described by SPEC.md, tickets, or an agreed-upon conversation for a task under `.agents/tasks/<number>/`.
 ---
 
 # Implement
