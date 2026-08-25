@@ -25,4 +25,4 @@ As you implement, append to the ticket file's "Progress log": what's done, what 
 
 Once every ticket for the task is implemented and its focused tests are green, run the read-only `leveltravel-pr-review` once for the whole task (not per ticket). Handle its findings as usual.
 
-Do not commit or push. That's a separate step the user requests explicitly (see `leveltravel-pr-workflow`).
+Do not commit or push.
