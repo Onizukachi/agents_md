@@ -33,9 +33,9 @@ The solution, from the same perspective.
 
 Facts established from the code: entry points, file:line references, the models/services/workers/integrations involved. This is discovery, not a future contract — specific paths and lines belong here and don't go stale as long as the code doesn't change.
 
-## Usage scenarios
+## Scenarios
 
-A numbered list: "As a `<actor>`, I want `<feature>`, so that `<benefit>`." The actor doesn't have to be an end user — it can be an internal role, process, or worker (e.g. "As the accountant...", "As the registry-processing worker..."). As many scenarios as needed to cover the distinct kinds of behavior — no padding for length.
+A numbered list of the concrete cases the solution must handle. As many as needed to cover the distinct kinds of behavior — no padding for length.
 
 ## Implementation decisions
 
