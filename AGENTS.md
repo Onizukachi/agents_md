@@ -57,7 +57,6 @@ copy workflow.
 - Task artifacts live under `.agents/tasks/<number>/`: `SPEC.md` (from `to-spec`, when used) and `ticket-<NN>-<slug>.md` files (from `to-tickets`).
 - Look there when the user mentions a task, spec, or ticket.
 - Create artifacts only through `to-spec`/`to-tickets`, and only when the task warrants them.
-- Older flat `task-<number>.md` files predate this layout; they are left as historical records and are not migrated.
 
 ## 7) Definition of Done
 
