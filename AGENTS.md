@@ -15,8 +15,10 @@ LevelTravel is a travel aggregator: it searches, books, and sells travel Package
 
 | Task | Skill | Type |
 |---|---|---|
-| Full multi-agent development cycle: approved plan, implementation, tests, and repeat independent reviews | `parallel-plan-implementation` | Personal |
 | Large or ambiguous task, before implementation starts | `grill` | Personal |
+| Turn an agreed spec-worthy conversation into a spec artifact | `to-spec` | Personal |
+| Break a spec, plan, or conversation into ordered, dependency-aware tickets | `to-tickets` | Personal |
+| Implement a task's tickets/spec from `.agents/tasks/` | `implement` | Personal |
 | Codebase terminology, or writing/editing `CONTEXT.md` | `domain-modeling` | Personal |
 | Rails migrations | `leveltravel-migrations` | Personal |
 | Final read-only review before push or PR update | `leveltravel-pr-review` | LevelTravel |
@@ -52,9 +54,10 @@ copy workflow.
 
 ## 6) Task Artifacts
 
-- Task artifacts live in `.agents/tasks/` as `task-<number>.md`.
-- Look there when the user mentions an artifact.
-- Create an artifact only when the user explicitly requests one.
+- Task artifacts live under `.agents/tasks/<number>/`: `SPEC.md` (from `to-spec`, when used) and `ticket-<NN>-<slug>.md` files (from `to-tickets`).
+- Look there when the user mentions a task, spec, or ticket.
+- Create artifacts only through `to-spec`/`to-tickets`, and only when the task warrants them.
+- Older flat `task-<number>.md` files predate this layout; they are left as historical records and are not migrated.
 
 ## 7) Definition of Done
 
