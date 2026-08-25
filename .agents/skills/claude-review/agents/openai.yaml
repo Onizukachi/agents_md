@@ -1,6 +1,0 @@
-interface:
-  display_name: "Claude Cross-Review"
-  short_description: "Run independent read-only Claude review"
-  default_prompt: "Use $claude-review to independently review an approved LevelTravel task."
-policy:
-  allow_implicit_invocation: false
