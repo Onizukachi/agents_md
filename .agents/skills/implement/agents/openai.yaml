@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement"
+  short_description: "Implement a task's SPEC.md and/or tickets"
+  default_prompt: "Use $implement to implement the work described by SPEC.md and/or the tickets for a task under .agents/tasks/<number>/."

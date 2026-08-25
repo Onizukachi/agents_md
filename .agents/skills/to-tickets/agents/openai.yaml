@@ -1,0 +1,4 @@
+interface:
+  display_name: "To Tickets"
+  short_description: "Break a plan or spec into tracer-bullet tickets"
+  default_prompt: "Use $to-tickets to break a plan, SPEC.md, or the current conversation into tracer-bullet tickets with blocking edges under .agents/tasks/<number>/."

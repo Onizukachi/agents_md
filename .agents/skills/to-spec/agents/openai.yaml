@@ -1,0 +1,4 @@
+interface:
+  display_name: "To Spec"
+  short_description: "Synthesize the conversation into a task SPEC.md"
+  default_prompt: "Use $to-spec to turn the current conversation into a SPEC.md for the task under .agents/tasks/<number>/."
