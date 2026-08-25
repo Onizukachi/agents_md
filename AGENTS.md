@@ -8,32 +8,12 @@ LevelTravel is a travel aggregator: it searches, books, and sells travel Package
 
 - Before any LT command, run `source ./lt.sh`, then use the loaded `lt` function.
 - Run every Rails command inside the Rails container: enter it with `lt sh` first.
-- Use the task-routing table below before starting specialized work.
+- Check available skills before starting specialized work; if none matches, proceed directly per this document.
 - Apply the Definition of Done (end of this document) before considering a change finished.
 
 ## 3) Task Routing
 
-| Task | Skill | Type |
-|---|---|---|
-| Large or ambiguous task, before implementation starts | `grill` | Personal |
-| Turn an agreed spec-worthy conversation into a spec artifact | `to-spec` | Personal |
-| Break a spec, plan, or conversation into ordered, dependency-aware tickets | `to-tickets` | Personal |
-| Implement a task's tickets/spec from `.agents/tasks/` | `implement` | Personal |
-| Codebase terminology, or writing/editing `CONTEXT.md` | `domain-modeling` | Personal |
-| Rails migrations | `leveltravel-migrations` | Personal |
-| Final read-only review before push or PR update | `leveltravel-pr-review` | LevelTravel |
-| Production hotfix with `master` and `develop` PRs (skip all Yandex Tracker steps) | `leveltravel-hotfix-workflow` | LevelTravel |
-| Elasticsearch log investigation | `lvtv-elastic-logs` | Shared |
-| Yandex Tracker work | `yandex-tracker` | Shared |
-| Redash queries or read-only SQL | `redash-api` | Shared |
-| Local LevelTravel Sentry investigation | `sentry-local` | Shared |
-| Corporate Yandex Wiki page lookup, export, or summary | `yandex-wiki` | Shared |
-| Read own Mattermost: unread, threads, search, channel history, reactions, attachments | `mm-gateway` | Shared |
-| Frontend changes missing after reload/restart | `leveltravel-frontend-asset-recovery` | Personal |
-| ActiveAdmin browser check or recovery | `leveltravel-activeadmin-ui-check` | Personal |
-| Install, update, export, or compare shared skills | `skill-importer`, `skill-exporter`, or `skills-syncer`, respectively | Shared |
-
-If no route matches, follow this document and the linked files below, and proceed directly; do not invent a skill.
+Pick a skill by its own description when one matches the task at hand. If none matches, follow this document and the linked files below, and proceed directly; do not invent a skill.
 
 ## 4) Further Reading
 

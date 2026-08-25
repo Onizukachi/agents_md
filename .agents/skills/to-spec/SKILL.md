@@ -1,6 +1,6 @@
 ---
 name: to-spec
-description: Turn the current conversation into a SPEC.md for the task under `.agents/tasks/<number>/`: no interview, just synthesis of what's already been discussed.
+description: "Turn the current conversation into a SPEC.md for the task under `.agents/tasks/<number>/`: no interview, just synthesis of what's already been discussed."
 ---
 
 # To Spec
