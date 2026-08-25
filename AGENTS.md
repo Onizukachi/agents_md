@@ -48,7 +48,6 @@ All applicable MUST rows must be satisfied:
 | Database schema | Migration workflow completed; migrations applied; schema changes clean and relevant |
 | PAPI v3 route or contract | Documentation updated in the same PR |
 | Personal skills or agent materials | Changes committed and pushed to `agents_md` |
-| Push or PR update | Required test, review, and PR workflows completed |
 
 For changed code, also verify where applicable — see [Further Reading](#4-further-reading) for the underlying rules:
 
