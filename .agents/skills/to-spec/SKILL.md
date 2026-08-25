@@ -21,8 +21,6 @@ Determine the task number and the `.agents/tasks/<number>/` path: an explicit nu
 
 # <Task title>
 
-Tracker: LT-<number>
-
 ## Problem
 
 The problem, from the perspective of the user or process depending on it.
