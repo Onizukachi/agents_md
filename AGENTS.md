@@ -13,7 +13,7 @@ LevelTravel is a travel aggregator: it searches, books, and sells travel Package
 
 ## 3) Task Routing
 
-Pick a skill by its own description when one matches the task at hand. If none matches, follow this document and the linked files below, and proceed directly; do not invent a skill.
+If no skill matches, follow this document and the linked files below, and proceed directly; do not invent a skill.
 
 ## 4) Further Reading
 
