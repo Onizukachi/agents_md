@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code vs Spec"
+  short_description: "Read-only review of a branch diff against its spec"
+  default_prompt: "Use $code-vs-spec to review the current branch against the SPEC.md or tickets it was written from."
