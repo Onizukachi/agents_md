@@ -1,0 +1,4 @@
+interface:
+  display_name: "LevelTravel Code Review"
+  short_description: "Three-axis Spec/Standards/Domain-risk PR review"
+  default_prompt: "Use $leveltravel-code-review to review the current LevelTravel branch against develop after tests and before pushing or updating a pull request."
