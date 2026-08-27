@@ -59,3 +59,7 @@ _Avoid_: Transaction-based registry (its opposite, not yet named in code)
 **Universal Registry**:
 The "Сверка Партнёры" Registry File format filed under partner_id 6 alongside the separate Getblogger format; each row lists a different real partner for context, but every resulting Partner Operation is still attributed to partner 6, like the rest of that Registry File.
 _Avoid_: Multi-partner file, Getblogger file
+
+**Alfa Miles Report**:
+An outbound registry LevelTravel generates daily, listing Alfa-Bank miles purchase/return operations (from PartnerBonus status transitions) for Alfa-Bank's own reconciliation - the reverse direction from a Registry File, which arrives from a partner rather than being produced for one.
+_Avoid_: Registry File, реестр (without qualifier)
