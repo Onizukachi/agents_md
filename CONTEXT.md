@@ -63,3 +63,11 @@ _Avoid_: Multi-partner file, Getblogger file
 **Alfa Miles Report**:
 An outbound registry LevelTravel generates daily, listing Alfa-Bank miles purchase/return operations (from PartnerBonus status transitions) for Alfa-Bank's own reconciliation - the reverse direction from a Registry File, which arrives from a partner rather than being produced for one.
 _Avoid_: Registry File, реестр (without qualifier)
+
+**Whitelabel Partner**:
+A Partner that runs the product on its own domain under its own brand, so Clients never see LevelTravel's name; distinct from an API partner, which only consumes the API.
+_Avoid_: WL, Reseller, Affiliate
+
+**Partner Document Override**:
+An Article named `<base_document_name>_<partner_id>` that stands in for LevelTravel's version of that legal document for exactly one Partner; when no such Article exists, the base document is used.
+_Avoid_: Partner article, WL agreement, Custom agreement
