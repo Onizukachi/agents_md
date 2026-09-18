@@ -199,3 +199,122 @@ Article вида `agreement_operator_info_78_operator_org_102`, но для вн
   и есть нужный адрес» — осознанное решение постановщика, а не техническое ограничение,
   которое можно снять другим источником данных (такого источника в проверенных FSA API
   не существует).
+
+## Progress log
+
+Реализовано как единая задача (тикеты не заводились).
+
+- Миграция `AddOgrnAndAddressToHotelOrganizations` (`up`/`down` + `column_exists?`-гарды,
+  без `safety_assured` — добавление nullable string-колонок не требует его). Применена
+  в dev и test БД; `db/schema.rb` вручную сведён к трёхстрочному диффу (версия + два новых
+  поля в `hotel_organizations`) после того, как локальный дампер переформатировал весь
+  файл из-за дрейфа версии MySQL/Rails — тот же приём, что в LT-53619.
+- `Hotels::FsaHotelOrganizationFetcher#build_attributes` переименовал внутреннюю
+  переменную в `required_attributes` и отдельно домешивает `ogrn`/`address`
+  (`hotel.main.ownerOgrn`, первый элемент `hotel.main.addressList[].name`) через
+  `.presence`, не участвуя в проверке «все обязательные поля присутствуют».
+- `HotelOrganizations::SyncWorker#organization_matches?` расширен сравнением по
+  `ogrn`/`address` — пять полей вместо трёх.
+- `Settings` получил `hotel_owner_requisites_in_agreement?` (по образцу
+  `redirect_3ds_mode?`) и чекбокс в форме `/admin/settings` под новым заголовком
+  «Договоры».
+- `OrderDecorator#operator_info` — ранняя ветка `hotel_owner_requisites?` (флаг +
+  `package.hotel_only?` + `country&.id == Place::RUSSIA_ID` + наличие снапшота у
+  `package.hotel.hotel_organizations.latest_first.first`), рендерящая
+  `hotel_owner_requisites` вместо пути через `OperatorAgreementManager`. Формирование
+  строк вынесено в `hotel_owner_requisites_lines` отдельным приватным методом — иначе
+  `hotel_owner_requisites` превышал лимит `Metrics/MethodLength` в 10 строк. Адрес,
+  как и ОГРН, выводится только если присутствует (в спеке явно зафиксирован только
+  ОГРН как опциональный, но `address` — такая же nullable-колонка без presence-валидации
+  при создании снапшота, поэтому решил не печатать пустую строку «Адрес: » и для него —
+  расширение того же правила, а не отступление от спеки).
+- Заголовок блока и подписи строк («СВЕДЕНИЯ О ВЛАДЕЛЬЦЕ ОТЕЛЯ», «Полное наименование»,
+  «Сокращенное наименование», «Адрес (место нахождения)», «ИНН», «ОГРН») — черновая
+  формулировка по образцу блока туроператора из скриншота тикета; финальная
+  редакция текста, как и оговорено в спеке, — на усмотрение постановщика/FinDoc.
+- I18n: `activerecord.attributes.hotel_organization.{ogrn,address}` в `config/locales/ru.yml`,
+  рядом с существующим блоком `hotel:` — только для двух новых полей, остальные
+  атрибуты `HotelOrganization` переводов не имели и раньше, трогать не стал.
+- Тесты — три существующих шва расширены, новых спек-файлов не заводилось:
+  - `spec/services/hotels/fsa_hotel_organization_fetcher_spec.rb` — `expected_attributes`
+    дополнен `ogrn: nil` и реальным адресом из той же VCR-кассеты (кассета
+    сама по себе уже покрывает сценарий «ОГРН пустой»).
+  - `spec/workers/hotel_organizations/sync_worker_spec.rb` — `organization_attributes`
+    дополнен ogrn/address; два новых теста «creates a new organization when only
+    ogrn/address differs».
+  - `spec/decorators/order_decorator_spec.rb` — новый `describe '#operator_info'`,
+    6 примеров (успешный рендер, пустой ОГРН, флаг выключен, нет снапшота, не
+    hotel-only, не Россия). Для success-кейса используется реальные `create(:hotel)`/
+    `create(:hotel_organization)` вместо дублирующего double на relation — так
+    отработал настоящий scope `latest_first`, и заодно ушли rubocop-замечания
+    `RSpec/VerifiedDoubles`/`RSpec/MultipleMemoizedHelpers`, которые вылезли на
+    первой версии теста с `double(latest_first: ...)`.
+- Rubocop прогнан по всем новым/изменённым файлам. В новом коде поправил две реальные
+  находки (лишняя trailing comma в литерале массива, метод длиннее 10 строк — вынес
+  построение строк в отдельный метод). Остальные замечания в затронутых файлах —
+  предсуществующие паттерны того же файла (например, `Style/GlobalVars` на
+  `$markdown.render`, уже используемый в оригинальном `operator_info`;
+  `RSpec/SubjectStub`/`RSpec/MultipleExpectations` в `header_for_client`/
+  `description_for_client`/`agreement_operator_extras_price` — не трогал, это
+  ушло бы за рамки задачи).
+- Полный прогон задетых спек (первый проход, до review-гейта):
+  `spec/models/hotel_organization_spec.rb`,
+  `spec/services/hotels/fsa_hotel_organization_fetcher_spec.rb`,
+  `spec/workers/hotel_organizations/`, `spec/decorators/order_decorator_spec.rb`,
+  `spec/services/operator_agreement_manager_spec.rb` — 36 примеров, 0 падений,
+  1 pending (предсуществующий `xit` в `operator_agreement_manager_spec.rb`, не
+  относится к этой задаче).
+
+### Review gate (`leveltravel-pr-review`)
+
+Прогнан один раз на всю задачу (uncommitted-диф, base — локальный `develop`
+`45027ac1...`). Native-проход (codex CLI) фактически не смог посмотреть рабочее
+дерево — в этом окружении у него не было доступа к локальному shell, поэтому
+вместо `git diff` он сравнил два *чужих* коммита на GitHub через MCP (ни один из
+них не содержит изменений этой задачи, так как ничего не закоммичено) и вернул
+пустой результат. Такой вывод недостоверен, поэтому native-проход заменён на
+fallback-агента (standard-agent fallback, с явной пометкой), которому вручную
+указано читать именно локальный рабочий каталог. Independent focused-companion
+проход шёл параллельно как обычно.
+
+Companion на первом прогоне вернул BLOCKED с одним CONCERN и двумя NIT:
+- **CONCERN** (реальный, подтверждён): `Hotels::FsaHotelOrganizationFetcher#build_attributes`
+  после правки превысил `Metrics/MethodLength`/`Metrics/AbcSize` — я срезал rubocop-вывод
+  через `tail -20` и не увидел эти замечания при первой самопроверке. Исправлено вынесением
+  `required_attributes(data)`/`optional_attributes(data)` в приватные методы (0 замечаний
+  после фикса).
+- **NIT**: тест «когда ОГРН пуст» проверял только отсутствие строки ОГРН, не проверяя,
+  что остальной блок (имя/адрес/ИНН) при этом рендерится нормально — то есть фактически
+  не покрывал сценарий 2 из спеки целиком. Исправлено — тест теперь также утверждает
+  наличие имени/адреса/ИНН.
+- **NIT**: у новых колонок `ogrn`/`address` не было `length`-валидации, в отличие от
+  соседних `inn`/`phone_number`/`name` — при значении длиннее лимита БД `create!` в
+  `SyncWorker` (retry: false) просто упал бы без ретрая. Исправлено:
+  `validates :inn, :phone_number, :ogrn, length: { maximum: 255 }`,
+  `validates :name, :address, length: { maximum: 512 }`; заодно расширил саму колонку
+  `address` в БД до `limit: 512` (как у `name`), а не оставил на дефолтных 255 —
+  миграция была откачена и переприменена внутри контейнера, `db/schema.rb` заново
+  вручную сведён к минимальному диффу.
+
+После фиксов companion перепроверил все три пункта заново (сам прогнал rubocop и
+спеки, сверил байт-в-байт остальные файлы) и дал **PASS**. Fallback-агент на
+финальном дереве тоже дал **PASS**: 0 BLOCKER, 0 CONCERN, 3 NIT — все приняты как
+есть, без исправлений:
+1. Пропуск строки адреса при пустом `address` — в спеке явно оговорен только пропуск
+   ОГРН; расширение того же правила на адрес осознанное и безвредное, но не было
+   отдельного теста на этот конкретный случай (пустой адрес) — оставлено как есть,
+   слишком мелкий кейс для отдельного покрытия.
+2. Спека модели не проверяла новые `length`-валидации — закрыто отдельным фиксом
+   после companion-прохода: `validate_length_of(:ogrn).is_at_most(255)` и
+   `validate_length_of(:address).is_at_most(512)` в `hotel_organization_spec.rb`.
+3. Первый прод-прогон `RunnerWorker` после релиза создаст новый снапшот почти для
+   каждого отеля с непустым `ogrn`/`address` в ответе ФСА, так как все существующие
+   строки сейчас имеют эти поля `nil` — это ожидаемое разовое пополнение данных, а не
+   дефект.
+
+Финальный прогон после всех правок ревью: 38 примеров, 0 падений, 1 pending
+(тот же предсуществующий `xit`).
+
+- Не делалось (сознательно, по решениям выше): rate limiter/`ExternalRequest` для
+  `Hotels::FsaHotelOrganizationFetcher`, коммит и пуш изменений — ждут отдельного
+  запроса.
