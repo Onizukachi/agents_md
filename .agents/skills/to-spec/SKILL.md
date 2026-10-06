@@ -5,7 +5,7 @@ description: "Turn the current conversation into a SPEC.md for the task under `.
 
 # To Spec
 
-Take the current conversation context and codebase understanding and produce a spec. Do NOT interview the user; just synthesize what you already know. If something remains unclear and blocks the spec, use skill `grill` first.
+Take the current conversation context and codebase understanding and produce a spec. Do NOT interview the user; just synthesize what you already know. The one question allowed is confirming the test seams (step 2). If something else remains unclear and blocks the spec, use skill `grill` first.
 
 ## Resolving the task
 
