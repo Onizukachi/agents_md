@@ -15,11 +15,15 @@ Determine the task number and the `.agents/tasks/<number>/` path: an explicit nu
 
 1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary (`CONTEXT.md`) throughout, and respect existing decisions in the area you're touching.
 2. Sketch out the seams at which you're going to test the feature. Prefer existing seams to new ones, at the highest level possible. Fewer seams is better — the ideal is one. Check with the user that these seams match their expectations.
-3. Write the spec using the template below to `.agents/tasks/<number>/SPEC.md`.
+3. Write the spec using the template below to `.agents/tasks/<number>/SPEC.md`. Write the text in the language of the discussion (in LevelTravel, Russian) and keep the template's section headings.
 
 <spec-template>
 
 # <Task title>
+
+## Summary
+
+Five to ten lines: the problem, the chosen solution, and the decisions a reader must know before opening the rest. Write it last, keep it first: specs grow large and readers start here.
 
 ## Problem
 
