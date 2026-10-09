@@ -44,9 +44,9 @@ Load these only when the task touches their topic:
 
 ## 7) Task Artifacts
 
-- Task artifacts live under `.agents/tasks/<number>/`: `SPEC.md` (from `to-spec`, when used) and `ticket-<NN>-<slug>.md` files (from `to-tickets`).
-- Look there when the user mentions a task, spec, or ticket. Specs can be large (the LT-54329 one is about 110 KB): read `Scenarios` and `Implementation decisions` first and open other sections only when needed.
-- Create artifacts only through `to-spec`/`to-tickets`, and only when the task warrants them.
+- Task artifacts live under `.agents/tasks/<number>/`: `SPEC.md` (from `to-spec`, when used) and `PROGRESS.md` (from `implement`: progress and decisions that deviate from the spec).
+- Look there when the user mentions a task or spec. Specs can be large (the LT-54329 one is about 110 KB): read `Scenarios` and `Implementation decisions` first and open other sections only when needed.
+- Create a spec only through `to-spec`, and only when the task warrants them.
 
 ## 8) Definition of Done
 

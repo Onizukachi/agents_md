@@ -12,8 +12,8 @@ LevelTravel и в глобальных каталогах агентов (`~/.co
 - `.agents/docs/` — дополнительная проектная документация для агентов.
 - `.agents/skills/` — личные skills; каждая подпапка линкуется целиком, без
   отдельного списка.
-- `.agents/tasks/` — task artifacts (`SPEC.md`, `ticket-<NN>-<slug>.md`).
-  Каталог появляется, когда `to-spec`/`to-tickets` создают первый артефакт: git
+- `.agents/tasks/` — task artifacts (`SPEC.md`, `PROGRESS.md`).
+  Каталог появляется, когда `to-spec` создаёт первый артефакт: git
   не хранит пустые каталоги, поэтому на свежем клоне симлинк `.agents/tasks` в
   checkout LevelTravel до этого момента висит битым — это ожидаемо.
 - `scripts/setup_leveltravel_agent_links.sh` — настройка симлинков на новой

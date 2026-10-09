@@ -1,6 +1,6 @@
 ---
 name: code-vs-spec
-description: "Read-only review of a branch diff against the spec it was written from — what the spec asked for and is missing, what the diff adds that the spec never asked for, and what looks implemented but is implemented wrong. Use only when the user asks for a spec check of a branch that has a SPEC.md or tickets."
+description: "Read-only review of a branch diff against the spec it was written from — what the spec asked for and is missing, what the diff adds that the spec never asked for, and what looks implemented but is implemented wrong. Use only when the user asks for a spec check of a branch that has a SPEC.md."
 ---
 
 # Code vs Spec
@@ -13,16 +13,11 @@ Nothing is edited during this review, and this skill sets no gate — it reports
 
 ## Resolve The Spec
 
-Determine the task number and `.agents/tasks/<number>/` path the same way `to-spec`/`to-tickets` do: an explicit number or path passed to this skill → otherwise parse `<TRACKER>-<number>` (for LevelTravel, `LT-<number>`) from the current git branch name → otherwise ask; never invent one.
+Determine the task number and `.agents/tasks/<number>/` path the same way `to-spec` does: an explicit number or path passed to this skill → otherwise parse `<TRACKER>-<number>` (for LevelTravel, `LT-<number>`) from the current git branch name → otherwise ask; never invent one.
 
-Then look, in order:
+Read `.agents/tasks/<number>/SPEC.md`. Also note `.agents/tasks/<number>/PROGRESS.md` if it exists: decisions rejected or changed during implementation supersede the spec text.
 
-1. `.agents/tasks/<number>/SPEC.md`
-2. `.agents/tasks/<number>/ticket-*.md`, if there is no `SPEC.md`
-
-Also note `.agents/tasks/<number>/PROGRESS.md` (or a ticket's "Progress log") if it exists: decisions rejected or changed during implementation supersede the spec text.
-
-If neither a spec nor tickets exist, stop and say so. Without a spec this review has no subject — do not fall back to reviewing the diff "in general", and do not treat the branch name or commit messages as a spec.
+If there is no `SPEC.md`, stop and say so. Without a spec this review has no subject — do not fall back to reviewing the diff "in general", and do not treat the branch name or commit messages as a spec.
 
 ## Resolve The Base
 
@@ -52,7 +47,7 @@ Always use the three-dot form: two-dot or plain `BASE HEAD` compares trees and d
 
 Spawn exactly **one** read-only subagent (an `Explore` agent, or any agent told not to edit files). The point is independence: the reviewer must not have watched the implementation being written, so it judges the diff on its own reading. Do not summarize or characterize the diff for it.
 
-Hand it paths, not the spec text: specs can be 100 KB. Tell it which parts to read — `Scenarios`, `Implementation decisions`, `Testing decisions`, and `Out of scope` of `SPEC.md` (the rest only when a finding needs it), every `ticket-*.md` when there is no spec, and `PROGRESS.md` if present.
+Hand it paths, not the spec text: specs can be 100 KB. Tell it which parts to read — `Scenarios`, `Implementation decisions`, `Testing decisions`, and `Out of scope` of `SPEC.md` (the rest only when a finding needs it), and `PROGRESS.md` if present.
 
 ```text
 Use the repository at <repo>. Review `git diff <BASE_SHA>...<HEAD_SHA>` (merge-base <merge-base>, commits: <commit list>, changed files: <file list>) against the spec at <path(s)>. Read the spec files, the diff, and the surrounding code yourself. Do not edit files.
@@ -76,7 +71,7 @@ Write the report in the user's language:
 
 ```markdown
 ## Code vs Spec
-- Spec: `.agents/tasks/<number>/SPEC.md` (or the ticket files read); progress notes: <PROGRESS.md or none>
+- Spec: `.agents/tasks/<number>/SPEC.md`; progress notes: <PROGRESS.md or none>
 - Base: <base branch> @ <BASE_SHA>, head <HEAD_SHA>
 
 ### Missing
