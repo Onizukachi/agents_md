@@ -6,7 +6,7 @@ LevelTravel is a travel aggregator: it searches, books, and sells travel Package
 
 ## 2) Quick Start
 
-- Run every Rails command inside the Rails container, non-interactively from the host: `docker exec lt.rails bash -lc '<command>'` (the working directory is `/app`). Do not use `lt sh`: it opens an interactive shell. If `lt.rails` is not running, ask the user to start it with `lt start`.
+- Run every Rails command in the Rails container: `docker exec lt.rails bash -lc '<command>'` (working directory `/app`). Never use `lt sh`: it is interactive. If `lt.rails` is not running, start it with `lt start`; if that fails on login or VPN, ask the user.
 - Run tests with `docker exec lt.rails bash -lc 'bundle exec rspec <paths>'`. Ignore the `leveltravel-tests` skill entirely.
 - Apply the Definition of Done (end of this document) before considering a change finished.
 
