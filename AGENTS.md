@@ -6,7 +6,7 @@ LevelTravel is a travel aggregator: it searches, books, and sells travel Package
 
 ## 2) Quick Start
 
-- Run every Rails command in the Rails container: `docker exec lt.rails bash -lc '<command>'` (working directory `/app`). Never use `lt sh`: it is interactive. If `lt.rails` is not running, start it with `lt start`; if that fails on login or VPN, ask the user.
+- Run every Rails command in the Rails container: `docker exec lt.rails bash -lc '<command>'` (working directory `/app`), even if a skill says to run `ruby`, `bundle`, or `rails` on the host. Never use `lt sh`: it is interactive. If `lt.rails` is not running, start it with `lt start`; if that fails on login or VPN, ask the user.
 - Run tests with `docker exec lt.rails bash -lc 'bundle exec rspec <paths>'`. Ignore the `leveltravel-tests` skill entirely.
 - Apply the Definition of Done (end of this document) before considering a change finished.
 
@@ -16,12 +16,9 @@ If no skill matches, follow this document and the linked files below, and procee
 
 Project skills in `.agents/skills/` are written for Codex. Under Claude Code, apply them with these overrides:
 
-- Tests: the `leveltravel-pr-workflow` test gate is replaced by `bundle exec rspec` in the Rails container (see Quick Start). In the PR body's Tests section, list the exact rspec commands actually run with their real results, plus `PENDING remote authoritative amd64 gate: TeamCity rails-rspec`; no local full-gate lines.
-- Review: the native pass of `leveltravel-pr-review` is the built-in `code-review` skill; the focused companion is a fresh subagent with the companion prompt. Run the gate once, on the committed head, as a step of `leveltravel-pr-workflow`.
-- Spec conformance: when the task has `SPEC.md` or tickets, run `code-vs-spec` alongside `leveltravel-pr-review` before push and add its Spec conformance section to the PR body. It reports and does not gate.
-- Skill syntax: `$skill-name` in a skill text means "invoke that skill through the Skill tool". Skip Codex-only steps such as `$CODEX_BIN exec review`.
-- Host commands: where a skill runs `ruby`, `bundle`, or `rails` on the host (migration generator and uniqueness check, `script/api_docs.rb`, the host-first fallback of `focused_rspec.sh`), run it in the Rails container instead (see Quick Start).
-- `lt` CLI: it is a shell function from the profile, so `source ./lt.sh` is not needed. Call it directly (`lt start`), not through `bash -lc`, where the function does not exist. Never run `lt logs`: it streams and blocks. Read logs with `docker logs --tail 200 lt.rails` (or `lt.nginx`).
+- Tests: the `leveltravel-pr-workflow` local full gate is replaced by `bundle exec rspec` in the Rails container (see Quick Start). The PR body's Tests section lists the commands actually run and, instead of local full-gate lines, `PENDING remote authoritative amd64 gate: TeamCity rails-rspec`.
+- Review: the native pass of `leveltravel-pr-review` is the built-in `code-review` skill (skip `$CODEX_BIN exec review`); the focused companion is a fresh subagent with the companion prompt.
+- Never run `lt logs`: it streams and blocks. Read logs with `docker logs --tail 200 lt.rails` (or `lt.nginx`).
 
 ### Git conventions
 
