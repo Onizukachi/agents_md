@@ -50,9 +50,9 @@ scripts/setup_leveltravel_agent_links.sh /путь/к/leveltravel
 - симлинки на `AGENTS.md`, `CONTEXT.md`, `.agents/docs` и `.agents/tasks` в
   checkout LevelTravel (отдельного `CLAUDE.md` нет: Claude Code с версии 2.1.277
   читает `AGENTS.md` сам, если `CLAUDE.md` в проекте не существует);
-- симлинки на проектные skills из `<leveltravel>/.agents/skills` в
-  `<leveltravel>/.claude/skills`, чтобы Claude Code находил их так же, как Codex
-  находит `.agents/skills` напрямую;
+- один симлинк `<leveltravel>/.claude/skills` → `.agents/skills`, чтобы Claude
+  Code находил проектные skills так же, как Codex находит `.agents/skills`
+  напрямую (новые skills проекта подхватываются без повторного запуска);
 - записи для всех этих ссылок в `.git/info/exclude` (`/AGENTS.md`,
   `/CLAUDE.md`, `/CONTEXT.md`, `/.agents/docs`, `/.agents/tasks`,
   `/.claude/skills`), чтобы локальный overlay не попадал в `git status`;

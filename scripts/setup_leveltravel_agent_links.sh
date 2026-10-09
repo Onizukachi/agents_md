@@ -43,17 +43,12 @@ mkdir -p "$project_root/.agents"
 link_if_missing '../../agents_md/.agents/docs' "$project_root/.agents/docs"
 link_if_missing '../../agents_md/.agents/tasks' "$project_root/.agents/tasks"
 
-# Mirror the project's own tracked skills (.agents/skills/*, committed to the
-# LevelTravel repository) into .claude/skills, so Claude Code discovers them
-# the same way Codex already does by scanning .agents/skills directly.
-mkdir -p "$project_root/.claude/skills"
-if [ -d "$project_root/.agents/skills" ]; then
-  for project_skill in "$project_root/.agents/skills"/*; do
-    test -e "$project_skill" || continue
-    skill_name="$(basename "$project_skill")"
-    link_if_missing "../../.agents/skills/$skill_name" "$project_root/.claude/skills/$skill_name"
-  done
-fi
+# Expose the project's own tracked skills (.agents/skills, committed to the
+# LevelTravel repository) to Claude Code through one directory link, the same way
+# Codex already reads .agents/skills directly. A single link also picks up skills
+# added to the project later, with no re-run needed.
+mkdir -p "$project_root/.claude"
+link_if_missing '../.agents/skills' "$project_root/.claude/skills"
 
 # Every link created inside the checkout above is machine-local and must never be
 # committed, so keep it out of `git status` through the repository's local exclude
