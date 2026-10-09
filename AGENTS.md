@@ -25,6 +25,7 @@ Questions about production behavior are answered with the installed `lt-*` skill
 
 - Branches: `feature/LT-<number>-<slug>`. Hotfixes: `hotfix/LT-<number>-<slug>` into `master` and `hotfix/LT-<number>-<slug>-dev` into `develop`. Older `_dev`, `-master`, or number-less names are legacy; keep them only when continuing an existing paired PR.
 - Commits: title only, no body, no `Co-Authored-By` trailer, always in English. Regular tasks: `LT-<number> <imperative title>`. Hotfixes: `HOTFIX: <summary>`.
+- PR title: English, in the same format as the commit title (`LT-<number> <imperative title>`, `HOTFIX: <summary>`); a squash-merged PR title becomes the commit in `develop`.
 - PR body: start from `.github/PULL_REQUEST_TEMPLATE/group_backend_template.md`, then add the Tests, Review, and Tracker sections from `leveltravel-pr-workflow`. Regular tasks are squash-merged into `develop`.
 
 ## 5) Further Reading
@@ -57,6 +58,8 @@ All applicable MUST rows must be satisfied:
 | Database schema | Migration workflow completed; migrations applied; schema changes clean and relevant |
 | PAPI v3 route or contract | Documentation updated in the same PR |
 | Personal skills or agent materials | Changes committed and pushed to `agents_md` |
+
+`db/schema.rb` is committed in the old Rails 6.1 format, while Rails 8.1 dumps a different one (`charset:` instead of `options: "ENGINE=…"`, other column order, new header). After `db:migrate` the dump rewrites the whole file (thousands of diff lines): restore it with `git checkout db/schema.rb` and add by hand only the new table, columns, and indexes plus the `version:` line, in the existing style.
 
 For changed code, also check it against [Architecture](.agents/docs/architecture.md) and [Rails and Ruby conventions](.agents/docs/rails-conventions.md): ActiveAdmin block order, thin controllers, composable queries, eager loading, indexes for new query patterns, I18n keys.
 
