@@ -27,4 +27,4 @@ Use business names such as `Package`, `Hotel`, or `Order`, not generic technical
 
 Background jobs are Sidekiq workers in `app/workers/`, not ActiveJob classes; there is no `app/jobs/`.
 
-Always look for customer-facing frontend code in the adjacent `../lt-frontend/` repository. Frontend code in this repository is current only for the manager interface and ActiveAdmin.
+Look for customer-facing frontend code in the adjacent `../lt-frontend/` repository first. Frontend code in this repository is current for the manager interface and ActiveAdmin, and also for the white-label checkout and payment step: it is still served from `client/lt-modules` (the `package_checkout` bundle), because `../lt-frontend/apps/wl` has no payment yet. Check which side serves a page before editing.
