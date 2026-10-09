@@ -1,52 +1,45 @@
 ---
 name: leveltravel-activeadmin-ui-check
-description: Use when checking or recovering LevelTravel ActiveAdmin pages in the browser. Covers the project workflow for opening the page, handling login, retrying after 502 errors, restarting Rails and nginx, and falling back to Rails logs for diagnosis.
+description: Use when checking or recovering LevelTravel ActiveAdmin pages in the local environment. Covers the page URL, login, telling "app is down" from "app error", recovering a 502, and reading Rails logs for a 500.
 ---
 
 # LevelTravel ActiveAdmin UI Check
 
-Use this skill when the user asks to verify an ActiveAdmin page, reproduce an admin UI issue, or recover an admin page that may return `502 Bad Gateway`.
+Use this skill to verify an ActiveAdmin page, reproduce an admin UI issue, or recover a page that returns `502`. Change application code only after the recovery steps below are exhausted.
 
-This skill governs the UI-check workflow only. Diagnose and fix application issues only after the page recovery steps have been exhausted.
+## Facts
 
-## Bootstrap LT CLI
+- Admin pages are at `https://leveltravel.dev/admin/<resource>` (for example `/admin/payment_logs`). `leveltravel.dev`, `manager.leveltravel.dev`, and `crm.leveltravel.dev` resolve to `127.0.0.1` through `/etc/hosts` and are served by the `lt.nginx` container, which proxies to Puma in `lt.rails`.
+- An unauthenticated request is redirected (`302`) to `/users/login`. The login form has no prefilled credentials; the browser may autofill them and the button is `Войти`. Never guess credentials: if the form is empty, ask the user to log in.
+- Rails logs go to stdout, not to `log/development.log`. Read them with `docker logs --tail 200 lt.rails`. Never use `lt logs`: it streams and blocks.
 
-Before any LT command on the host, load the helper:
+## Check
+
+1. Status without a browser:
+
+   ```bash
+   curl -sk -o /dev/null -m 10 -w '%{http_code} %{redirect_url}\n' https://leveltravel.dev/admin/<resource>
+   ```
+
+   - `302` to `/users/login`: the app is up, only a login is needed.
+   - `200`: the page loads (when a session cookie is sent).
+   - `502`/`504`: nginx is up but Puma is down or still booting; go to Recover.
+   - `500`: an application error; go to Diagnose.
+   - `000`: nginx itself is down; run `lt start`.
+
+2. Visual check: open the URL with the claude-in-chrome tools (`tabs_context_mcp` first, then a new tab, `navigate`, `get_page_text` or a screenshot). On the login page, let the user log in, then reload the target page.
+
+## Recover a 502
+
+1. `docker inspect lt.rails --format '{{.State.Health.Status}}'`. If it is `starting`, wait up to 60 seconds and re-check the page.
+2. If `lt.rails` is `unhealthy` or the page is still `502`: `docker restart lt.rails`, wait for `healthy`, reload the page.
+3. If the page is still `502` while `lt.rails` is `healthy`: `docker restart lt.nginx` (nginx resolves its upstreams at start and can keep a stale address after Rails was recreated), reload the page.
+4. If it still fails, treat it as an application problem and diagnose.
+
+## Diagnose a 500 or a failed boot
 
 ```bash
-source ./lt.sh
+docker logs --tail 300 lt.rails | grep -n -E 'Completed 500|Error|Exception' | tail -20
 ```
 
-## UI Check Workflow
-
-Follow this order:
-
-1. Start Rails logs:
-```bash
-lt logs rails
-```
-
-2. Open the target ActiveAdmin page directly.
-Example:
-```text
-https://leveltravel.dev/admin/payment_logs
-```
-
-3. If authentication is required, click `Войти`. Credentials are expected to be prefilled.
-
-4. If the page returns `502 Bad Gateway`, reload it and wait up to 20 seconds.
-
-5. If the page is still unavailable after that wait, restart services:
-```bash
-lt restart rails && lt restart nginx
-```
-
-6. Reload the page again and wait up to 20 seconds.
-
-7. If the page still fails after the restart, treat it as an application error and use Rails logs to diagnose the failure.
-
-## Diagnosis Boundary
-
-Do not jump to code changes before this recovery loop finishes. A transient `502` is not enough evidence of an application bug.
-
-Only after the page remains broken after reload and restart should the task become a real Rails investigation.
+Read the stack trace around the last match with `docker logs --tail 300 lt.rails | sed -n '<from>,<to>p'`. A transient `502` right after a restart is not evidence of a bug.
