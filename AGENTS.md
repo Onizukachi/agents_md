@@ -22,7 +22,7 @@ These rules apply to every agent and override the project skills in `.agents/ski
 ### Git conventions
 
 - Branches: `feature/LT-<number>-<slug>`. Hotfixes: `hotfix/LT-<number>-<slug>` into `master` and `hotfix/LT-<number>-<slug>-dev` into `develop`. Older `_dev`, `-master`, or number-less names are legacy; keep them only when continuing an existing paired PR.
-- Commits: title only, no body, no `Co-Authored-By` trailer. Regular tasks: `LT-<number> <English imperative title>`. Hotfixes: `HOTFIX: <summary in Russian>`.
+- Commits: title only, no body, no `Co-Authored-By` trailer, always in English. Regular tasks: `LT-<number> <imperative title>`. Hotfixes: `HOTFIX: <summary>`.
 - PR body: start from `.github/PULL_REQUEST_TEMPLATE/group_backend_template.md`, then add the Tests, Review, and Tracker sections from `leveltravel-pr-workflow`. Regular tasks are squash-merged into `develop`.
 
 ## 4) Further Reading
