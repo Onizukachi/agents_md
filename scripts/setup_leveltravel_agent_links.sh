@@ -43,13 +43,6 @@ mkdir -p "$project_root/.agents"
 link_if_missing '../../agents_md/.agents/docs' "$project_root/.agents/docs"
 link_if_missing '../../agents_md/.agents/tasks' "$project_root/.agents/tasks"
 
-# Expose the project's own tracked skills (.agents/skills, committed to the
-# LevelTravel repository) to Claude Code through one directory link, the same way
-# Codex already reads .agents/skills directly. A single link also picks up skills
-# added to the project later, with no re-run needed.
-mkdir -p "$project_root/.claude"
-link_if_missing '../.agents/skills' "$project_root/.claude/skills"
-
 # Every link created inside the checkout above is machine-local and must never be
 # committed, so keep it out of `git status` through the repository's local exclude
 # file rather than through a tracked .gitignore.
@@ -57,7 +50,6 @@ exclude_if_missing '/AGENTS.md'
 exclude_if_missing '/CONTEXT.md'
 exclude_if_missing '/.agents/docs'
 exclude_if_missing '/.agents/tasks'
-exclude_if_missing '/.claude/skills'
 exclude_if_missing '/.claude/settings.json'
 
 # Personal skills (this checkout) go straight into both runtimes. Registry-distributed

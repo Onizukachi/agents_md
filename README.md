@@ -20,9 +20,11 @@ LevelTravel и в глобальных каталогах агентов (`~/.co
   машине.
 
 Skills, относящиеся к основному workflow LevelTravel (`leveltravel-pr-workflow`,
-`leveltravel-tests` и прочие), лежат в самом репозитории LevelTravel и линкуются
-скриптом настройки. Skills из общего реестра (`integration-*`, `lt-metrics`,
-`lvtv-elastic-logs`, `mm-gateway`, `yandex-*` и т. д.) ставит и обновляет
+`leveltravel-tests` и прочие), лежат в самом репозитории LevelTravel
+(`.agents/skills`); Claude Code находит их через закоммиченный в репозитории
+симлинк `.claude/skills`, скрипт настройки их не трогает. Skills из общего
+реестра (`integration-*`, `lt-metrics`, `lt-elastic`, `mm-gateway`, `yandex-*` и
+т. д.) ставит и обновляет
 `lt-skills sync` — он пишет собственные managed-копии в `~/.codex/skills` и
 `~/.claude/skills`, и скрипт настройки их не трогает.
 
@@ -50,12 +52,10 @@ scripts/setup_leveltravel_agent_links.sh /путь/к/leveltravel
 - симлинки на `AGENTS.md`, `CONTEXT.md`, `.agents/docs` и `.agents/tasks` в
   checkout LevelTravel (отдельного `CLAUDE.md` нет: Claude Code с версии 2.1.277
   читает `AGENTS.md` сам, если `CLAUDE.md` в проекте не существует);
-- один симлинк `<leveltravel>/.claude/skills` → `.agents/skills`, чтобы Claude
-  Code находил проектные skills так же, как Codex находит `.agents/skills`
-  напрямую (новые skills проекта подхватываются без повторного запуска);
-- записи для всех этих ссылок в `.git/info/exclude` (`/AGENTS.md`,
-  `/CONTEXT.md`, `/.agents/docs`, `/.agents/tasks`, `/.claude/skills`,
-  `/.claude/settings.json`), чтобы локальный overlay не попадал в `git status`;
+- записи для этих ссылок и для локального `.claude/settings.json` в
+  `.git/info/exclude` (`/AGENTS.md`, `/CONTEXT.md`, `/.agents/docs`,
+  `/.agents/tasks`, `/.claude/settings.json`), чтобы локальный overlay не
+  попадал в `git status`;
 - симлинки на личные skills из `agents_md/.agents/skills` в `~/.codex/skills`
   и `~/.claude/skills`.
 
