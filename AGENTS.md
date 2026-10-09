@@ -21,7 +21,7 @@ Project skills in `.agents/skills/` are written for Codex. Under Claude Code, ap
 - Spec conformance: when the task has `SPEC.md` or tickets, run `code-vs-spec` alongside `leveltravel-pr-review` before push and add its Spec conformance section to the PR body. It reports and does not gate.
 - Skill syntax: `$skill-name` in a skill text means "invoke that skill through the Skill tool". Skip Codex-only steps such as `$CODEX_BIN exec review`.
 - Host commands: where a skill runs `ruby`, `bundle`, or `rails` on the host (migration generator and uniqueness check, `script/api_docs.rb`, the host-first fallback of `focused_rspec.sh`), run it in the Rails container instead (see Quick Start).
-- `lt` CLI: it is a shell function from the profile, so `source ./lt.sh` is not needed. Never run `lt logs`: it streams and blocks. Read logs with `docker logs --tail 200 lt.rails` (or `lt.nginx`).
+- `lt` CLI: it is a shell function from the profile, so `source ./lt.sh` is not needed. Call it directly (`lt start`), not through `bash -lc`, where the function does not exist. Never run `lt logs`: it streams and blocks. Read logs with `docker logs --tail 200 lt.rails` (or `lt.nginx`).
 
 ### Git conventions
 
