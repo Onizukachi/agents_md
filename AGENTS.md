@@ -25,8 +25,8 @@ Questions about production behavior are answered with the installed `lt-*` skill
 
 - Branches: `feature/LT-<number>-<slug>`. Hotfixes: `hotfix/LT-<number>-<slug>` into `master` and `hotfix/LT-<number>-<slug>-dev` into `develop`. Older `_dev`, `-master`, or number-less names are legacy; keep them only when continuing an existing paired PR.
 - Commits: title only, no body, no `Co-Authored-By` trailer, always in English. Regular tasks: `LT-<number> <imperative title>`. Hotfixes: `HOTFIX: <summary>`.
-- PR title: English, in the same format as the commit title (`LT-<number> <imperative title>`, `HOTFIX: <summary>`); a squash-merged PR title becomes the commit in `develop`.
-- PR body: start from `.github/PULL_REQUEST_TEMPLATE/group_backend_template.md`, then add the Tests, Review, and Tracker sections from `leveltravel-pr-workflow`. Regular tasks are squash-merged into `develop`.
+- PR title and description: always in Russian. Title format: `LT-<number> <title>`, hotfixes `HOTFIX: <summary>`.
+- PR body: start from `.github/PULL_REQUEST_TEMPLATE/group_backend_template.md`, then add the Tests, Review, and Tracker sections from `leveltravel-pr-workflow` (headings and text in Russian). Regular tasks are squash-merged into `develop`.
 
 ## 5) Further Reading
 
