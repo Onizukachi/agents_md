@@ -38,7 +38,6 @@ exclude_if_missing() {
 test -d "$project_root/.git" || die "not a LevelTravel checkout: $project_root"
 
 link_if_missing '../agents_md/AGENTS.md' "$project_root/AGENTS.md"
-link_if_missing 'AGENTS.md' "$project_root/CLAUDE.md"
 link_if_missing '../agents_md/CONTEXT.md' "$project_root/CONTEXT.md"
 mkdir -p "$project_root/.agents"
 link_if_missing '../../agents_md/.agents/docs' "$project_root/.agents/docs"
@@ -60,11 +59,14 @@ fi
 # committed, so keep it out of `git status` through the repository's local exclude
 # file rather than through a tracked .gitignore.
 exclude_if_missing '/AGENTS.md'
+# Claude Code reads AGENTS.md directly, so no CLAUDE.md link is created; the entry
+# stays so that an old branch checkout cannot surface a stray CLAUDE.md in git status.
 exclude_if_missing '/CLAUDE.md'
 exclude_if_missing '/CONTEXT.md'
 exclude_if_missing '/.agents/docs'
 exclude_if_missing '/.agents/tasks'
 exclude_if_missing '/.claude/skills'
+exclude_if_missing '/.claude/settings.json'
 
 # Personal skills (this checkout) go straight into both runtimes. Registry-distributed
 # skills (integration-*, mm-gateway, yandex-*, etc.) are installed and kept current by

@@ -41,7 +41,7 @@ Load these only when the task touches their topic:
 
 ## 5) Agent Materials
 
-`AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`, `.agents/docs/`, and `.agents/tasks/`
+`AGENTS.md`, `CONTEXT.md`, `.agents/docs/`, and `.agents/tasks/`
 are symbolic links to the personal `agents_md` checkout. Edit them through
 those links; do not replace them with local copies or synchronize them with a
 copy workflow.

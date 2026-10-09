@@ -8,7 +8,6 @@ LevelTravel и в глобальных каталогах агентов (`~/.co
 ## Содержимое
 
 - `AGENTS.md` — основные инструкции для агентов в LevelTravel.
-- `CLAUDE.md` — симлинк на `AGENTS.md`.
 - `CONTEXT.md` — доменный словарь проекта.
 - `.agents/docs/` — дополнительная проектная документация для агентов.
 - `.agents/skills/` — личные skills; каждая подпапка линкуется целиком, без
@@ -48,8 +47,9 @@ scripts/setup_leveltravel_agent_links.sh /путь/к/leveltravel
 
 Скрипт создаёт или проверяет:
 
-- симлинки на `AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`, `.agents/docs` и
-  `.agents/tasks` в checkout LevelTravel;
+- симлинки на `AGENTS.md`, `CONTEXT.md`, `.agents/docs` и `.agents/tasks` в
+  checkout LevelTravel (отдельного `CLAUDE.md` нет: Claude Code с версии 2.1.277
+  читает `AGENTS.md` сам, если `CLAUDE.md` в проекте не существует);
 - симлинки на проектные skills из `<leveltravel>/.agents/skills` в
   `<leveltravel>/.claude/skills`, чтобы Claude Code находил их так же, как Codex
   находит `.agents/skills` напрямую;
