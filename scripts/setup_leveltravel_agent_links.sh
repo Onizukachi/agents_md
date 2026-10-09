@@ -54,9 +54,6 @@ link_if_missing '../.agents/skills' "$project_root/.claude/skills"
 # committed, so keep it out of `git status` through the repository's local exclude
 # file rather than through a tracked .gitignore.
 exclude_if_missing '/AGENTS.md'
-# Claude Code reads AGENTS.md directly, so no CLAUDE.md link is created; the entry
-# stays so that an old branch checkout cannot surface a stray CLAUDE.md in git status.
-exclude_if_missing '/CLAUDE.md'
 exclude_if_missing '/CONTEXT.md'
 exclude_if_missing '/.agents/docs'
 exclude_if_missing '/.agents/tasks'

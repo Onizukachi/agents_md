@@ -54,8 +54,8 @@ scripts/setup_leveltravel_agent_links.sh /путь/к/leveltravel
   Code находил проектные skills так же, как Codex находит `.agents/skills`
   напрямую (новые skills проекта подхватываются без повторного запуска);
 - записи для всех этих ссылок в `.git/info/exclude` (`/AGENTS.md`,
-  `/CLAUDE.md`, `/CONTEXT.md`, `/.agents/docs`, `/.agents/tasks`,
-  `/.claude/skills`), чтобы локальный overlay не попадал в `git status`;
+  `/CONTEXT.md`, `/.agents/docs`, `/.agents/tasks`, `/.claude/skills`,
+  `/.claude/settings.json`), чтобы локальный overlay не попадал в `git status`;
 - симлинки на личные skills из `agents_md/.agents/skills` в `~/.codex/skills`
   и `~/.claude/skills`.
 
