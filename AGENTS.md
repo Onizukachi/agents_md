@@ -14,11 +14,10 @@ LevelTravel is a travel aggregator: it searches, books, and sells travel Package
 
 If no skill matches, follow this document and the linked files below, and proceed directly; do not invent a skill.
 
-Project skills in `.agents/skills/` are written for Codex. Under Claude Code, apply them with these overrides:
+These rules apply to every agent and override the project skills in `.agents/skills/` where they differ:
 
-- Tests: the `leveltravel-pr-workflow` local full gate is replaced by `bundle exec rspec` in the Rails container (see Quick Start). The PR body's Tests section lists the commands actually run and, instead of local full-gate lines, `PENDING remote authoritative amd64 gate: TeamCity rails-rspec`.
-- Review: the native pass of `leveltravel-pr-review` is the built-in `code-review` skill (skip `$CODEX_BIN exec review`); the focused companion is a fresh subagent with the companion prompt.
-- Never run `lt logs`: it streams and blocks. Read logs with `docker logs --tail 200 lt.rails` (or `lt.nginx`).
+- Tests: the local full gate of `leveltravel-pr-workflow` is replaced by `bundle exec rspec` in the Rails container (see Quick Start). The PR body's Tests section lists the commands actually run and, instead of local full-gate lines, `PENDING remote authoritative amd64 gate: TeamCity rails-rspec`.
+- Review: the native pass of `leveltravel-pr-review` is the host's own code review (Codex: `codex exec review`; Claude Code: the built-in `code-review` skill); the focused companion is a fresh subagent with the companion prompt. Skip steps meant for another host.
 
 ### Git conventions
 
