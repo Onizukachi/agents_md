@@ -13,11 +13,11 @@ An internal LevelTravel staff account (e.g. agent, manager) with system access.
 _Avoid_: Client, Employee
 
 **Organization**:
-A legal entity within the LevelTravel business (e.g. the entities referred to internally as LT, LP, AK); orders, payments, and receipts are attributed to one.
+A legal entity within the LevelTravel business: Level Travel (LT), Level Putyeshestviya (LP), or Akademiya Servisa (AK). Orders, Payments, and Receipts are attributed to one; AK sells as an agent (see Agent Receipts Flow).
 _Avoid_: Operator, Company
 
 **Operator**:
-An external tour operator/wholesaler that supplies hotel and tour inventory to the product.
+An external tour operator/wholesaler (ТО in internal talk) that supplies hotel and tour inventory to the product.
 _Avoid_: Organization, Provider, Supplier
 
 **Package**:
@@ -57,11 +57,11 @@ A Registry File whose rows already carry the order's own ID and commission amoun
 _Avoid_: Transaction-based registry (its opposite, not yet named in code)
 
 **Universal Registry**:
-The "Сверка Партнёры" Registry File format filed under partner_id 6 alongside the separate Getblogger format; each row lists a different real partner for context, but every resulting Partner Operation is still attributed to partner 6, like the rest of that Registry File.
+The "Сверка Партнёры" Registry File format filed under one fixed Partner alongside the separate Getblogger format; each row lists a different real partner for context, but every resulting Partner Operation is still attributed to that one Partner, like the rest of that Registry File.
 _Avoid_: Multi-partner file, Getblogger file
 
 **Alfa Miles Report**:
-An outbound registry LevelTravel generates daily, listing Alfa-Bank miles purchase/return operations (from PartnerBonus status transitions) for Alfa-Bank's own reconciliation - the reverse direction from a Registry File, which arrives from a partner rather than being produced for one.
+An outbound registry LevelTravel generates daily, listing Alfa-Bank miles purchase/return operations (built from the status changes of Alfa-Bank miles bonuses) for Alfa-Bank's own reconciliation - the reverse direction from a Registry File, which arrives from a partner rather than being produced for one.
 _Avoid_: Registry File, реестр (without qualifier)
 
 **Whitelabel Partner**:
@@ -69,5 +69,45 @@ A Partner that runs the product on its own domain under its own brand, so Client
 _Avoid_: WL, Reseller, Affiliate
 
 **Partner Document Override**:
-An Article named `<base_document_name>_<partner_id>` that stands in for LevelTravel's version of that legal document for exactly one Partner; when no such Article exists, the base document is used.
+A partner-specific version of a legal document that stands in for LevelTravel's base version for exactly one Partner; when none exists, the base document is used.
 _Avoid_: Partner article, WL agreement, Custom agreement
+
+**Order**:
+A Client's purchase of a Package; Payments and Receipts attach to it.
+_Avoid_: Booking
+
+**Payment**:
+A movement of the Client's money on an Order through a payment gateway: authorization, capture, and refund.
+_Avoid_: Transaction
+
+**Receipt**:
+A fiscal receipt registered for a Payment or refund of an Order. It is either an Advance Receipt or a Receipt of a Detalization.
+_Avoid_: Check, Invoice
+
+**Advance Receipt**:
+A Receipt issued when money arrives, before the Order is detalized; it registers the money as an advance for the Order, not as sold services.
+_Avoid_: Prepayment receipt
+
+**Detalization**:
+Re-registering an Order's total as separate positions (tour, extras, our services), each attributed to the Receipt Agent that actually provides it, closing the advances; done after the trip or on demand.
+_Avoid_: Itemization, Breakdown
+
+**Receipt Agent**:
+The legal entity whose service a Receipt line sells while the Organization acts as its commission agent: the Package's Operator Organization, or the Hotel Owner when the Order qualifies. Its name, INN, and phone print in the receipt's agent block.
+_Avoid_: Supplier
+
+**Hotel Owner**:
+The legal entity that owns a hotel, taken from the state hotel registry; for dynamic hotels in Russia it replaces the Operator Organization as Receipt Agent when the Order qualifies.
+_Avoid_: Hotel organization, Hotelier
+
+**Agent Receipts Flow**:
+The receipt scheme for Orders of Akademiya Servisa (AK): advances are registered on one Receipt Agent fixed at the Order's first advance, and before Detalization they are moved to the Receipt Agents of the detalized positions by Technical Receipts. Orders created before the flow started stay on the old scheme.
+_Avoid_: New flow
+
+**Technical Receipt**:
+A Receipt that only re-attributes money between Receipt Agents (an advance transfer in counter-provision form, or the reversal of an earlier Detalization); it goes to the fiscal operator but is never shown to the Client.
+_Avoid_: Transfer receipt, Hidden receipt
+
+**Detalization Block**:
+An Order whose Detalization cannot be done automatically (for example the amounts do not add up or a Payment is frozen) and waits for manual review.
+_Avoid_: Failed detalization
