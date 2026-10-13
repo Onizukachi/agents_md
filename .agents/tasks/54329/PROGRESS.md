@@ -137,3 +137,28 @@
 - Закрыть отправку тестовых чеков через «Профискализировать»: проверять `fiscalization_forbidden?` в
   `fiscalize_manually` и для чеков не из цепочки.
 - Rubocop: `Metrics/ClassLength` и `AbcSize` в `mock_acquiring.rb`, `Metrics/ParameterLists` у `build_payment`.
+
+## 2026-10-13
+
+### Ветка
+- `6296ae23f` (09.10): заказы нового флоу с замороженными деньгами уходят на ручной разбор детализаций, а не в лог
+  «детализация запрещена». `Order#create_receipts` для них сразу вызывает `process_receipts`, проверку денег делает
+  `Detailing#check_money!`.
+
+### Сделано
+- Rubocop (новые нарушения `Metrics` от ветки):
+  - поиск тестовой карты вынесен из `MockAcquiring` в `PaymentProcessor::MockAcquiringMethods::TestCards` (`extend`,
+    вызовы `MockAcquiring.test_card` не менялись); проверка `available?` перенесена из `ia_check` в `test_card`;
+    `capture` разбит на `capture` и `mark_captured`;
+  - `build_payment` принимает необязательные параметры ключами (`**options`), вызов в `pay_card` обновлён.
+  - В `payments_concern.rb` и `pay_card_methods.rb` остались только нарушения, которые есть и в develop.
+- Спеки мока, селектора, роутера, `payments_controller` и PAPI-флоу оплаты картой: 60 примеров, зелёные.
+
+### Открыто — пересмотр
+- Возврат 4 266 ₽ по заказу 362177021 снят: неактуально.
+- Отдельный хотфикс `required_3ds` в master не нужен: фикс едет в этой ветке.
+
+Остаётся:
+- После прогона на проде убрать заглушку `test_card?` и заглушку `true &&` в `STARTS_AT`.
+- Закрыть отправку тестовых чеков через «Профискализировать»: проверять `fiscalization_forbidden?` в
+  `fiscalize_manually` и для чеков не из цепочки.
