@@ -193,3 +193,16 @@ HEAD из-за заглушки `true &&` в `eligible?`.
 - Признаки чека сертификата не меняли: payattr 1 / lineattr 4 и блок оплаты `type 4` остаются. Переход на «аванс /
   платёж» (письмо ФНС от 03.07.2018 № ЕД-4-20/12717@) бухгалтерия отклонила.
 - Rubocop `Metrics` у `line_item_vat` игнорируем, как и остальные замечания `Metrics` по ветке.
+
+### Заглушки сняты, дата старта
+- `STARTS_AT = Time.zone.local(2026, 10, 14, 0, 0, 0)` (Москва, в стиле `HOTEL_OWNER_RECEIPTS_SINCE`); в `eligible?`
+  вернулось `(order.created_at || Time.current) >= STARTS_AT`, заглушки `true &&` убраны (`STARTS_AT.present?` не нужна).
+- Откатан [TEST]-коммит `c491c3785`: `Payment#test_card?` снова просто `data[:test_card]`, в
+  `card_payment_papi_flow_spec` вернулось `be_test_card`. Моковый эквайринг остаётся.
+- Спеки зависели от текущей даты: после 14.10 заказы АК в тестах получали бы флаг. Заказы старого флоу и «без флага»
+  создаются до `STARTS_AT` (`created_at: STARTS_AT - 1.day`): `spec/apis/payments/uniteller_spec.rb`, `pay2me_spec.rb`,
+  `agent_flow_spec.rb` (без флага), `fiscal_processor/uniteller_spec.rb` (аванс и сертификат без флага).
+- Проверка: спеки с заказами АК (около 50 файлов + `spec/requests/papi/v3/flows`, 563 примера) прогнаны с датой 14.10 и с
+  датой в прошлом (симуляция после старта) — в обоих режимах падают только три спеки вне задачи: `checkout_flow_spec:279`
+  и `package_spec:56` (нет `old_packages_2` в тестовой базе), `agency_order_flow_spec:33` (`User#role=`).
+- Не закоммичено: пользователь проверяет сам.
