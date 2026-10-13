@@ -41,5 +41,9 @@
 ### Заметки
 - `bin/rails runner` через Spring в dev падает при перезагрузке маршрутов в `app/admin/crm_level/crm_level_nps_ratings.rb` (`User.managers`) — не связано с задачей; запускал с `DISABLE_SPRING=1`.
 
+### После ревью пользователя
+- Атрибут `XLSXReader#preamble` переименован в `rows_above_header` (и параметр `report_date` в парсерах шапки): так понятнее, что это строки файла над строкой заголовков.
+- `SignedAmountExtractor` оставлен с этим именем по решению пользователя.
+
 ## Rejected / changed
 - **`RegisterValueParser` — только `report_date`, без `operation_date`.** Спецификация предлагала оба метода. Но формат колонки «Дата отчета» задаёт сам `FileProcessor` (`ДД.ММ.ГГГГ`), поэтому разбирать её должен он же, а не каждый поставщик. `FileProcessor#extract_date` вызывает `operation_date` только если парсер его объявил (как у HBPro), иначе разбирает дату через `Date.parse`. Поведение HBPro не меняется.
