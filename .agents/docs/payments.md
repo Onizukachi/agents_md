@@ -125,7 +125,8 @@ Orders with `order.data[:agent_receipts]` branch off `Receipt.process_*_advanced
   -> `Receipts::Builder#create`
   -> `LineItemsV2::Advanced::Builder#build_refund_line_items`.
 - **Direct refund to the client** (refund by bank details, no payment processor call):
-  `Payment#direct_refund!` -> `Payment#mark_refunded!` (with `params` for a detailed refund)
+  `Payment#refund!(..., direct: true)` / `Payment#refund_detailed!(..., direct: true)` take the existing
+  no-processor branch (as for Paylate, Vanta and credits) -> `Payment#mark_refunded!`
   -> `Payment#create_advanced_receipts`, then the same receipt path as above.
 
 ### 6.2 Manager UI payment flow (`Manager::PaymentsController`)
@@ -143,8 +144,7 @@ Orders with `order.data[:agent_receipts]` branch off `Receipt.process_*_advanced
     `action_type == 'refund'` and `type == 'detailed'`.
 - Detailed refund payload (example):
   `"refund_extras"=>{"669075"=>"12619.09", "669076"=>"12619.09"}, "refund_licence_amount"=>"10124.82", "refund_tour_amount"=>"380000"`.
-- **Direct refund to the client**: the same `refund_advanced` with `direct_refund == true` (checkbox «Прямой возврат клиенту» in the payment popup, hidden for subagent orders). Requires `manager.payment_refund`; calls `Payment#direct_refund!` instead of the processor. This replaced the removed manual fiscalization admin page.
-- **Direct refund before capture**: `Manager::PaymentsController#complete` with `action_type == 'release'` and `direct_refund == true` (same checkbox and role). Calls `Payment#direct_release!` -> `Payment#mark_released!` (advance refund receipt) without the processor; the hold in the acquirer is NOT released.
+- **Direct refund to the client**: the same `refund_advanced` with `direct_refund == true` (checkbox «Прямой возврат клиенту» in the payment popup, only for refunds, hidden for subagent orders). Requires `manager.payment_refund` on the backend; passes `direct: true` to `refund!` / `refund_detailed!`. The amount is limited by the popup only, as for Paylate and credit refunds. This replaced the removed manual fiscalization admin page. There is no direct release: releasing without the processor would leave the acquirer hold alive.
 
 ## 7. Agent receipts flow (LT-54329, Akademia Servisa)
 
