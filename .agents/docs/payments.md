@@ -124,9 +124,9 @@ Orders with `order.data[:agent_receipts]` branch off `Receipt.process_*_advanced
   -> `Receipt.process_refund_advanced_receipts(payment, amount, 'detailed', params)`
   -> `Receipts::Builder#create`
   -> `LineItemsV2::Advanced::Builder#build_refund_line_items`.
-- **Manual fiscalization**:
-  `Admin::ManualFiscalizationController#fiscalize_receipts`
-  -> `LineItemsV2::Advanced::Builder.create_manual`.
+- **Direct refund to the client** (refund by bank details, no payment processor call):
+  `Payment#direct_refund!` -> `Payment#mark_refunded!` (with `params` for a detailed refund)
+  -> `Payment#create_advanced_receipts`, then the same receipt path as above.
 
 ### 6.2 Manager UI payment flow (`Manager::PaymentsController`)
 
@@ -143,6 +143,8 @@ Orders with `order.data[:agent_receipts]` branch off `Receipt.process_*_advanced
     `action_type == 'refund'` and `type == 'detailed'`.
 - Detailed refund payload (example):
   `"refund_extras"=>{"669075"=>"12619.09", "669076"=>"12619.09"}, "refund_licence_amount"=>"10124.82", "refund_tour_amount"=>"380000"`.
+- **Direct refund to the client**: the same `refund_advanced` with `direct_refund == true` (checkbox «Прямой возврат клиенту» in the payment popup, hidden for subagent orders). Requires `manager.payment_refund`; calls `Payment#direct_refund!` instead of the processor. This replaced the removed manual fiscalization admin page.
+- **Direct refund before capture**: `Manager::PaymentsController#complete` with `action_type == 'release'` and `direct_refund == true` (same checkbox and role). Calls `Payment#direct_release!` -> `Payment#mark_released!` (advance refund receipt) without the processor; the hold in the acquirer is NOT released.
 
 ## 7. Agent receipts flow (LT-54329, Akademia Servisa)
 
@@ -155,7 +157,7 @@ The old flow (section 6) and the new one live side by side: old orders stay on t
 ### 7.1 Marker and scope
 
 - Marker: `order.data[:agent_receipts] == true`, set once in `Order#set_agent_receipts_flag` (`before_create`) when `Receipts::AgentFlow.eligible?` holds: organization AK, not a certificate order, not a subagent order, partner does not skip fiscalization, created at or after `Receipts::AgentFlow::STARTS_AT` (a constant set after the release). Read it with `Receipts::AgentFlow.enabled?(order)`; never derive it from dates.
-- Out of scope: LT/LP orders, certificate orders, manual tools (`ManualFiscalization`, `CreateRevert`).
+- Out of scope: LT/LP orders, certificate orders.
 
 ### 7.2 Entry points
 
