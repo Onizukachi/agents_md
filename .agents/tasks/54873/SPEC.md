@@ -465,7 +465,7 @@
 | `LineItemsV2::Advanced::Creator.tour_supplier_id:9`, `PossibleItemsBuilder:115`, `OrderExtra#detect_organization:198` (split-допуслуги) | `line_items_v2.supplier_id` | **П/О** |
 | `OperatorPayment#set_operator_organization_id:398`, `OperatorPaymentsManager:16` (полисы), `AutoDynamicPayments::BaseSyncer:268`, `PaymentStatusMatchBuilder:439` | юр лицо оплаты оператору по умолчанию | **П/О** |
 | `Query::Payments::RefundStatementsQuery:97-102` | поставщик в заявлении на возврат, если нет оплаты оператору и заявки | **П/О** |
-| `Accounting::Repo` (хотфикс #27207: `repo.rb:101-107`; `selected_order_ids`: `repo.rb:237`, `confirmed_at_exportable.rb:12`, `tour_end_exportable.rb:12`) | поставщик тура в 1С | **принципал** из снимка с типом (владелец в том числе), хотфикс со 113 удаляется |
+| `Accounting::Repo` (хотфикс #27207: `repo.rb:101-107`; `selected_order_ids`: `repo.rb:237`, `confirmed_at_exportable.rb:12`, `tour_end_exportable.rb:12`) | поставщик тура в 1С | **поставщик для 1С** из снимка (`accounting_organization_id`). Хотфикс со 113 удаляется |
 | PAPI v3 `operator_organization` (`clients/_order:241-246`, `shared/_package_common:71-76`, `orders/_order:86-91`), `Order#price_info:3200,3206` (`OrderShowSerializer`) | реквизиты поставщика клиенту | **принципал**, включая владельца (у HotelOrganization телефон в `phone_number`) |
 | `PartnerBonuses::AlfaMiles::Utils::ContentBuilder:99,149` | провайдер тура в Alfa Miles | **принципал** |
 | `admin/orders/_summary_package.arb:15-16`, `admin/agreement_debug/_info.html.haml:4,36` | показ в админке | показывать **оба**: системное и принципала |
