@@ -341,7 +341,7 @@
   - Россия, поставщик не в матчинге: у 3 048 владелец с адресом или ОГРН есть, у 53 нет;
   - **Абхазия** (`places.id = 29386`): владельцев в `hotel_organizations` нет ни у одного отеля. Заказов 168, из них 137 через внешних ТО.
 - **`is_split` при оплате зависит от юр лица пакета.**
-  - При capture в новой архитектуре платежей `Payment#correct_split_value` (`app/models/payment.rb:451,482-486`) ставит `payment.is_split = order.operator_organization.is_split`. От этого зависят магазин Uniteller (split или обычный) и путь фискализации.
+  - При capture в новой архитектуре платежей `Payment#correct_split_value` (`app/models/payment.rb:451,482-486`) ставит `payment.is_split = order.operator_organization.is_split`. Что от этого реально зависит, разобрано в Q24: лимит capture, модалка покупателя в legacy-чекауте, флаг в 1С. Магазин Uniteller и суммы лицензии в чеках от флага юр лица не зависят.
   - Значения на проде: у 89 `is_split = 1`, у 113 и 124 — `0`.
   - Платежи по заказам 78 с 15.10: на 89 — 1 293 split и 213 обычных, на 113 — 349 и 330.
   - Отдельно `PaymentBuilder#operator_organization` (`app/services/payment_builder.rb:124-131`) — ещё один резолвер: юр лицо по стране, иначе основное. Через него ставится `data[:split_agreement]`.
