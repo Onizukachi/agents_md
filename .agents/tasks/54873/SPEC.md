@@ -443,6 +443,28 @@
 - **Справка о стоимости и PAPI v3 `operator_info`** — принципал из снимка, включая владельца. Документация PAPI v3 обновляется в том же PR.
 - **Сверка.** Заказ ищется по системному юр лицу. В `ORDER_SUPPLIER_IDS` загрузчиков Динамики добавляется 124: брони Alfi S в отдельной организации Динамики, по словам автора, скорее всего не появятся. Бенуару тоже нужны 113 и 124.
 
+### Читатели юр лица пакета: системное или принципал
+
+Инвентаризация 23.10.2026. Читатели `packages.operator_organization_id`, `package.operator_organization` и `order.operator_organization`; «П/О» означает принципал, если он OperatorOrganization, иначе системное.
+
+| Место | Зачем | Решение |
+|---|---|---|
+| `Order.by_operator_booking_id` (`order.rb:251`) ← `Accounting::DynamicsEnricher:71`, `OperatorOperations::ManualClearMethods:32`, `Applications::BaseRegisterSyncer:74`; `Accounting::Benoir::Enricher#matched_order:22-25` | сверка: найти заказ по оператору пакета и юр лицу | **системное**: ищется в паре с `packages.operator_id`, юр лицо чужого оператора не подходит |
+| `OrderDecorator#operator_agreement_manager:511`, `Order#log_operator_organization:4687`, `Package#assign_operator_agreement_version:1118`, версия статьи в PAPI (`clients/_order:247`, `shared/_package_common:78`, `orders/_order:92`, PAPI v2 `order_for_templates:22`) | имя и версия статьи договора | **системное**, как сейчас: суффикс есть только у Динамики, где системное = принципал |
+| `Admin::TransferMailGenerator#find_transfer_template:200-204` | шаблон письма о трансфере по юр лицу оператора | **системное**: шаблоны привязаны к юр лицам оператора пакета |
+| `Order#update_operator_application:4711-4716` | заявка ТО (BG, FUN&SUN, Anex) | **системное** (там оно = принципал) |
+| `Payment#correct_split_value:483-485`, `PaymentBuilder#is_split?:118`, `Package#show_modal_customer:1341`, `OrdersController:120`, `OrderCreation:451`, `Order::UrlHelpers:71`, `orders/show.html.haml:249` | легаси `is_split` / `split_agreement` | **системное**, у ВП и 124 `is_split = 1` как у 89 |
+| `OrderSerializer#show_dynamic_packages_label:72` | бейдж «Динамические пакеты» | вне скоупа (системное = принципал = 113) |
+| `LineItemsV2::Advanced::Creator.tour_supplier_id:9`, `PossibleItemsBuilder:115`, `OrderExtra#detect_organization:198` (split-допуслуги) | `line_items_v2.supplier_id` | **П/О** |
+| `OperatorPayment#set_operator_organization_id:398`, `OperatorPaymentsManager:16` (полисы), `AutoDynamicPayments::BaseSyncer:268`, `PaymentStatusMatchBuilder:439` | юр лицо оплаты оператору по умолчанию | **П/О** |
+| `Query::Payments::RefundStatementsQuery:97-102` | поставщик в заявлении на возврат, если нет оплаты оператору и заявки | **П/О** |
+| `Accounting::Repo` (хотфикс #27207: `repo.rb:101-107`; `selected_order_ids`: `repo.rb:237`, `confirmed_at_exportable.rb:12`, `tour_end_exportable.rb:12`) | поставщик тура в 1С | **принципал** из снимка с типом (владелец в том числе), хотфикс со 113 удаляется |
+| PAPI v3 `operator_organization` (`clients/_order:241-246`, `shared/_package_common:71-76`, `orders/_order:86-91`), `Order#price_info:3200,3206` (`OrderShowSerializer`) | реквизиты поставщика клиенту | **принципал**, включая владельца (у HotelOrganization телефон в `phone_number`) |
+| `PartnerBonuses::AlfaMiles::Utils::ContentBuilder:99,149` | провайдер тура в Alfa Miles | **принципал** |
+| `admin/orders/_summary_package.arb:15-16`, `admin/agreement_debug/_info.html.haml:4,36` | показ в админке | показывать **оба**: системное и принципала |
+| `Payment#get_operator_organization` / `#set_operator_organization` (`payment.rb:1015-1025`), `Uniteller::Receipt`, `OldReceipt`, `CertificateReceipt`, `Paylate::Receipt`, `CassbyApi` | легаси-чеки | вне скоупа (решение пользователя) |
+| `OperatorPayment#create_register_objects:288`, `OrderExportSerializer`, `Accounting::Repo#line_items_merged:366` | выгрузки ЛТ/ЛП, старая 1С | мёртвый код, не трогаем |
+
 ### Данные и админка
 
 - **`external_dynamic_matchings.active`**; таблица будет пополняться.
