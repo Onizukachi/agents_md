@@ -445,7 +445,7 @@
 
 ### Читатели юр лица пакета: системное или принципал
 
-Инвентаризация 23.10.2026. Читатели `packages.operator_organization_id`, `package.operator_organization` и `order.operator_organization`; «П/О» означает принципал, если он OperatorOrganization, иначе системное.
+Инвентаризация 23.10.2026. Читатели `packages.operator_organization_id`, `package.operator_organization` и `order.operator_organization`; «П/О» означает принципал, если он OperatorOrganization, иначе системное. Разбивку пользователь утвердил 23.10. Системными остаются сверка, статья договора, шаблоны писем о трансфере, заявки ТО и легаси `is_split`, на принципала их не переводим. Всё, что видит клиент или бухгалтерия, переводится на принципала.
 
 | Место | Зачем | Решение |
 |---|---|---|
