@@ -278,6 +278,7 @@ TravelSolutions продаёт наши туры как субагент: соз
   - миграции: `partner_bonus_operations`, `partners.partner_bonus_kind` с заполнением из `alfa_miles_enabled`;
   - проверить после деплоя, что у 1220 `partner_bonus_kind = alfa_miles` и WL Альфы по-прежнему показывает мили;
   - выставить `partner_bonus_kind = partner_alfa_miles` партнёру 1340;
+  - завести в админке `ApiMethod` `orders/partner_bonus` (`/orders/partner_bonus`, POST, throttle 1000, как у `orders/payments`): без него метод нельзя отметить в пресете, его нет в документации партнёра (`Partner::OpenAPIBuilder`), а app-gateway пропускает запросы по `ApiMethod.path`;
   - добавить `partner_bonus` в PAPI-пресет TravelSolutions;
   - передать TravelSolutions документацию с правилами возврата.
 - **Канал алерта.** Пока лог заказа и Sentry. Если менеджерам нужен отдельный канал (задача в заказе, отчёт), решаем после первых случаев.
