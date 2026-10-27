@@ -7,6 +7,7 @@ TravelSolutions (партнёр 1340, субагент с депозитом) х
 Ключевые решения:
 
 - Мили — это **скидка** через существующий `PartnerBonus` с новым `kind` `partner_alfa_miles`. Комиссия партнёра считается от цены за вычетом миль (согласовано с бизнесом).
+- Программа бонусов партнёра — **один селектор `partners.partner_bonus_kind`** (один `kind` или ничего) вместо булевых флагов на каждую программу. Он заменяет `alfa_miles_enabled`, поле `alfa_miles_enabled` в API настроек партнёра остаётся и вычисляется из селектора. В запросе ручки `kind` не передаётся, он берётся из селектора.
 - Мили приходят **отдельной ручкой `POST /papi/v3/orders/:id/partner_bonus` после создания заказа**. Порядок вызовов: `create` → ручка миль → `/payments` на остаток. В `orders#create` новый `kind` не принимается.
 - `PartnerBonus.amount` — текущий остаток миль, он же долг партнёра. Каждая операция (`debit`/`refund`) пишется в новый журнал `partner_bonus_operations` с ID операции партнёра: это идемпотентность сейчас и сверка потом.
 - Суммы — целые рубли. Деньгами всегда остаётся ≥1 ₽. `debit` не больше долга и запрещён в `canceled`/`annulled`. `refund` не больше остатка и разрешён в любом статусе.
@@ -77,7 +78,16 @@ TravelSolutions продаёт наши туры как субагент: соз
 - Путь создания заказа:
   - `partner_bonuses` входит в `OrderCreation::EXTERNAL_ORDER_PARAMS`;
   - `Order#build_benefits` → `#build_requested_partner_bonus` (стр. 4065) → `PartnerBonuses::RedemptionValidator`. Валидатор пропускает **любой** `kind` из enum (`kind_supported?`), проверяет «1 ₽ остаётся» и баланс клиента в Альфе только для `alfa_miles`.
-- Флаг партнёра `alfa_miles_enabled` — boolean-колонка `partners` (`default: false, null: false`). Показывается в админке (`app/admin/partners.rb:158`, `app/views/admin/partners/_form.html.haml:281`) и в настройках партнёра (`Partner::SettingsSerializer`, `Partner::SettingsWebSerializer`).
+- Флаг партнёра `alfa_miles_enabled` — boolean-колонка `partners` (`default: false, null: false`), входит в список атрибутов `Partner` (`app/models/partner.rb:98`), подпись в `config/locales/ru.yml:3586`.
+  - Показывается в админке: `app/admin/partners.rb:158`, `app/views/admin/partners/_form.html.haml:281`.
+  - Отдаётся наружу в настройках партнёра:
+    - `Partner::SettingsWebSerializer` → `Papi::V3::PartnerController#settings` (WL на вебе);
+    - `Partner::SettingsSerializer` → `#wl_settings` (WL в мобильном приложении) и `ApplicationController` (стр. 1064).
+
+    Судя по названию, по нему фронт показывает переключатель списания миль.
+  - Бэкенд при создании заказа флаг не проверяет: `RedemptionValidator` смотрит только на `kind`.
+  - На 27.10.2026 флаг включён только у партнёра 1220 `alfa_travel` (WL). Бонусов `alfa_miles` у заказов без партнёра всего 2, февраль–март 2026.
+- Прецедент вывода колонки из употребления: `Coupon` (`self.ignored_columns = LEGACY_COLUMNS`, `app/models/coupon.rb:35`).
 - Админка `PartnerBonus` (`app/admin/partner_bonuses.rb`): `index`/`show`, панели платежей и request logs, действия только для `alfa_miles`.
 - Менеджерка показывает скидку типа `partner_bonus` как «АльфаМили» (`app/assets/javascripts/manager/models/order.coffee:236`).
 - Лог B2C-миль: `PartnerBonuses::AlfaMiles::Utils::Logger` → `order.log("[АльфаМили] ...", :info, 0, nil, action_code: :alfa_miles)`. Каждый `OrderLog` на `after_create` вызывает `make_notify` → `Order::ExternalNotification::Sender`.
@@ -118,10 +128,11 @@ TravelSolutions продаёт наши туры как субагент: соз
 12. **Возврат миль без возврата денег.** На заказе в `canceled`/`annulled` возврат миль, а денег по заказу не возвращали: операция выполняется, в лог заказа пишется предупреждение и уходит сообщение в Sentry.
 13. **Списание на отменённом заказе.** `debit` на заказе в `canceled`/`annulled`: 422 `order_canceled`.
 14. **Другая скидка на заказе.** У заказа есть купон, сертификат LT, кешбэк, партнёрские сертификаты, промокод МГТ или B2C-бонус `alfa_miles`: 422 `discount_conflict`.
-15. **Мили не включены.** У партнёра не включён ни один партнёрский бонус (`partner_alfa_miles_enabled` выключен): 422 `bonus_not_enabled`.
+15. **Мили не включены.** `partner_bonus_kind` партнёра пустой или не партнёрский (например, `alfa_miles`): 422 `bonus_not_enabled`.
 16. **Ошибки доступа и параметров.** Чужой заказ: 404 `order not_found`. Неверная подпись или параметры: 422 `invalid_params` с ошибками по полям.
 17. **Новый `kind` в создании заказа.** `partner_bonuses: { kind: 'partner_alfa_miles', ... }` в `orders#create`/`prebuild`: ошибка `partner_bonuses` (`invalid_kind`), бонус не создаётся.
 18. **B2C-мили не затронуты.** `alfa_miles` работают как раньше. Для `partner_alfa_miles` не запускаются hold, подтверждение, возврат и синхронизация с Альфой, реестр для Альфы и выгрузки `alfa_miles`.
+19. **Настройки партнёра после миграции.** У партнёра 1220 `partner_bonus_kind = alfa_miles`, и `/papi/v3/partner/settings` и `wl_settings` по-прежнему отдают `alfa_miles_enabled: true`. У партнёра с `partner_alfa_miles` и у партнёров без программы — `alfa_miles_enabled: false`. В админке программа выбирается одним выпадающим списком, значение вне `PartnerBonus.kinds` не сохраняется.
 
 ## Implementation decisions
 
@@ -155,8 +166,12 @@ TravelSolutions продаёт наши туры как субагент: соз
 
 ### Доступ партнёра
 
-- Новая колонка `partners.partner_alfa_miles_enabled` (boolean, `default: false, null: false`), как `alfa_miles_enabled`. Показывается в админке партнёра рядом с `alfa_miles_enabled`.
-- `kind` в запросе не передаётся. Ручка берёт его из флага партнёра, а для заказа, у которого бонус уже есть, — из самого бонуса.
+- **Селектор программы.** Новая колонка `partners.partner_bonus_kind` (string, nullable): значение из `PartnerBonus.kinds` или `NULL`, у партнёра не больше одной программы. Валидация на включение в `PartnerBonus.kinds`. В админке партнёра — выпадающий список с пустым вариантом и подписями из I18n («АльфаМили (B2C)», «АльфаМили партнёра»). Он заменяет чекбокс `alfa_miles_enabled`.
+- **Совместимость API.** `alfa_miles_enabled` в `Partner::SettingsSerializer` и `Partner::SettingsWebSerializer` остаётся тем же полем, но вычисляется: `partner_bonus_kind == 'alfa_miles'`. Фронты и мобильное приложение изменений не видят.
+- **Вывод `alfa_miles_enabled` в два релиза:**
+  - первый: добавить `partner_bonus_kind`, заполнить `alfa_miles` там, где `alfa_miles_enabled = true` (на 27.10.2026 это только 1220), перевести весь код на селектор, `alfa_miles_enabled` — в `ignored_columns` `Partner`;
+  - второй, отдельной задачей: удалить колонку `alfa_miles_enabled`. Если удалить её сразу, старые поды во время выката будут обращаться к удалённой колонке.
+- **`kind` в запросе не передаётся.** Ручка берёт его из `partner_bonus_kind`, если это партнёрский `kind`; для заказа, у которого бонус уже есть, — из самого бонуса.
 - Если у партнёра позже появится несколько программ, добавим необязательное поле `kind`. Подпись строится через `sha256_chain_signature` с `compact`, поэтому без этого поля она совпадёт со старой, и текущая интеграция не сломается.
 - В PAPI-пресет партнёра добавляется метод `partner_bonus` контроллера `orders`.
 
@@ -177,7 +192,7 @@ TravelSolutions продаёт наши туры как субагент: соз
 
 1. **Идемпотентность.** Ищем операцию по `(partner_id, operation_id)`. Если найдена с тем же заказом, `operation` и `amount`, отвечаем 200 её данными и текущим состоянием заказа. Если найдена с другими параметрами — 409 `operation_conflict`.
 2. **Проверки:**
-   - у партнёра включены мили (по флагу определяется `kind`);
+   - `partner_bonus_kind` партнёра — партнёрский `kind` (он и применяется);
    - для `debit`:
      - статус заказа не `canceled`/`annulled`;
      - тип скидки заказа пустой или `partner_bonus`, и существующий бонус того же `kind`;
@@ -214,7 +229,7 @@ TravelSolutions продаёт наши туры как субагент: соз
 | 400 | `Authorization token error` | нет ключа партнёра (существующее поведение `set_token`) |
 | 404 | `order not_found` | заказ не принадлежит партнёру |
 | 422 | `invalid_params` | валидация полей или подписи, ошибки по полям в `errors` |
-| 422 | `bonus_not_enabled` | у партнёра не включены мили |
+| 422 | `bonus_not_enabled` | у партнёра не выбрана партнёрская программа в `partner_bonus_kind` |
 | 422 | `order_canceled` | `debit` на `canceled`/`annulled` |
 | 422 | `discount_conflict` | у заказа другая скидка |
 | 422 | `amount_exceeds_debt` | `debit` больше долга |
@@ -241,6 +256,7 @@ TravelSolutions продаёт наши туры как субагент: соз
   - скидка и цена учитывают остаток сразу, остаток 0 скидку не даёт, `partner_price`/комиссия считаются от цены за вычетом миль;
   - события заказа (подтверждение, отмена) и создание `OrderLog` не запускают B2C-воркеры Альфы;
   - `partner_bonuses` с новым `kind` при создании заказа даёт ошибку `invalid_kind` (сценарии 17–18).
+- **Настройки партнёра** (сценарий 19): расширить `spec/controllers/papi/v3/partner_controller_spec.rb` (`#wl_settings`) и проверить `#settings` — `alfa_miles_enabled` вычисляется из `partner_bonus_kind`. Плюс модельная проверка `Partner`: значение вне `PartnerBonus.kinds` невалидно. Существующие спеки, которые создают партнёра с `alfa_miles_enabled: true` (например, `spec/models/order_spec.rb`), переводятся на `partner_bonus_kind: 'alfa_miles'`.
 - **Регрессия.** Без изменений проходят существующие спеки B2C-миль: `spec/services/partner_bonuses/**`, `spec/workers/partner_bonuses/**`, части `spec/models/order_spec.rb` про партнёрские бонусы, `spec/services/accounting/repo/tour_end_exportable_alfa_miles_spec.rb`, `spec/controllers/papi/v3/orders_controller/payments_spec.rb`.
 
 ## Out of scope
@@ -253,10 +269,17 @@ TravelSolutions продаёт наши туры как субагент: соз
 - Частичные возвраты при отмене — вручную через поддержку.
 - Обнаружение случая, когда цена заказа упала ниже остатка миль. Скидка в нём молча обрежется до `base_price − 1`, и долг партнёра разойдётся со скидкой. Это известный риск, следить за ним на втором этапе.
 - Корректность клиентской оценки штрафа (`cancellation_refund_data`) по заказам со скидкой.
+- Проверка при создании заказа, что `partner_bonuses.kind` совпадает с `partner_bonus_kind` партнёра. Для B2C это изменение поведения, его делаем отдельной задачей.
+- Удаление колонки `alfa_miles_enabled` — следующий релиз, отдельная задача.
 
 ## Further notes
 
-- **Выкатка:** миграции (`partner_bonus_operations`, `partners.partner_alfa_miles_enabled`); включить флаг партнёру 1340; добавить `partner_bonus` в PAPI-пресет TravelSolutions; передать TravelSolutions документацию с правилами возврата.
+- **Выкатка:**
+  - миграции: `partner_bonus_operations`, `partners.partner_bonus_kind` с заполнением из `alfa_miles_enabled`;
+  - проверить после деплоя, что у 1220 `partner_bonus_kind = alfa_miles` и WL Альфы по-прежнему показывает мили;
+  - выставить `partner_bonus_kind = partner_alfa_miles` партнёру 1340;
+  - добавить `partner_bonus` в PAPI-пресет TravelSolutions;
+  - передать TravelSolutions документацию с правилами возврата.
 - **Канал алерта.** Пока лог заказа и Sentry. Если менеджерам нужен отдельный канал (задача в заказе, отчёт), решаем после первых случаев.
 - **Лог заказа и вебхуки.** Записи о милях пишутся через `order.log`, а `OrderLog` на `after_create` вызывает `make_notify`. При реализации проверить, не уйдут ли эти записи вебхуком партнёру.
 - **Отклонённые альтернативы:**
