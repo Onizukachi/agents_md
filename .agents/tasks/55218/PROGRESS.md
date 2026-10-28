@@ -141,3 +141,10 @@ Companion на d7d586a77 — PASS. Native снял спорные A (комис�
 - По решению автора из миграции `20261027084608_create_partner_bonus_operations` и `db/schema.rb` убран индекс `(partner_id, created_at)` из спеки. Остались уникальный `(partner_id, external_id)` и `(partner_bonus_id)`. Если сверке второго этапа понадобится выборка операций партнёра за период, индекс добавляется отдельной миграцией.
 - Локально: на тестовой базе миграция прогнана `down`/`up`, на dev-базе индекс удалён. Спеки `spec/services/partner_bonuses` — 95 examples, 0 failures на обеих ветках.
 - Коммиты пересобраны и запушены с `--force-with-lease`: master `0e8927c61` → `80a4a6cf2`; develop заново от `f2493fb19` cherry-pick → `57199d951` (было `c85a2d75d`).
+
+## 2026-10-28 — миграции не запускались с новым кодом
+
+- Автор поймал при прогоне миграций: `Undeclared attribute type for enum 'partner_bonus_kind' in Partner`. Rails загружает приложение до миграций, ActiveAdmin при загрузке (`app/admin/external_notifications.rb:10`) делает `Partner.pluck`, а `enum` без колонки падает. На проде упал бы прогон миграций при деплое.
+- Исправление: `attribute :partner_bonus_kind, :string` перед `enum`, как у `OperatorOrganization#departures_mode` (хотфикс `05b6191db`).
+- Проверено на тестовой базе без колонки: ошибка воспроизводится до исправления; после него приложение загружается с маршрутами ActiveAdmin, `db:migrate:redo VERSION=20261027084609` создаёт колонку. Спеки партнёра, админки партнёров, PAPI `partner`, `partner_bonuses`, отчёта альфа-миль, `subagent_create` — 126 examples, 0 failures на обеих ветках.
+- Коммиты: master `80a4a6cf2` → `5a6476315`; develop от `f2493fb19` cherry-pick → `cf8efac4e`. В описаниях PR обновлены шаг выкатки и тесты.
