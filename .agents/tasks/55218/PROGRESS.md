@@ -118,3 +118,8 @@ Companion на d7d586a77 — PASS. Native снял спорные A (комис�
 ### Rejected / changed
 
 - По решению пользователя удалены `spec/controllers/papi/v3/orders_controller/partner_bonus_spec.rb`, `spec/admin/score_transfer_spec.rb` и `spec/admin/partner_bonuses_spec.rb`. Ручка `partner_bonus`, сервис `PartnerBonuses::ApplyOperation`, проверки «Переноса баллов» и панель журнала в админке остались без собственных тестов; модельные изменения покрыты `order_spec`/`partner_spec`. Фабрика `partner_bonus_operations` больше нигде не используется.
+
+## 2026-10-28 — спек сервиса `PartnerBonuses::ApplyOperation`
+
+- Вместо удалённого спека ручки — `spec/services/partner_bonuses/apply_operation_spec.rb` (26 примеров): первый `capture` (журнал, бонус `confirmed`, `stat_price`, комиссия, лог заказа), граница 1 ₽, отказы `amount_exceeds_limit`/`amount_exceeds_debt`/`order_canceled`/`discount_conflict`/`bonus_not_enabled`, повторный `capture`, частичный `refund`, `amount_exceeds_balance`, возврат после отключения программы, алерт при возврате на отменённом заказе без полного возврата денег, повтор `operation_id` и конфликт. Фабрика `partner_bonus_operations` снова используется.
+- Мутационная проверка: поломки выбора `kind`, пересчёта финданных, условия алерта, сверки повтора и лимита 1 ₽ роняют соответствующие примеры. Не покрыты: подпись и коды 409/422 ручки, гонка `RecordNotUnique`.
