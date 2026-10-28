@@ -112,3 +112,9 @@ Companion на d7d586a77 — PASS. Native снял спорные A (комис�
 ### Rejected / changed
 
 - Валидация заказа, запрещавшая менять `coupon_id`/`bonuses_granted` при ненулевом остатке партнёрских бонусов, удалена по решению пользователя вместе с ключом локали и тестом в `order_spec`. Для заказов TravelSolutions живой путь добавить купон или кешбэк — «Перенос баллов», он закрыт явными проверками; остальные пути (создание заказа через PAPI, Mindbox) к уже созданному заказу с милями не относятся.
+
+## 2026-10-28 — новые спеки удалены
+
+### Rejected / changed
+
+- По решению пользователя удалены `spec/controllers/papi/v3/orders_controller/partner_bonus_spec.rb`, `spec/admin/score_transfer_spec.rb` и `spec/admin/partner_bonuses_spec.rb`. Ручка `partner_bonus`, сервис `PartnerBonuses::ApplyOperation`, проверки «Переноса баллов» и панель журнала в админке остались без собственных тестов; модельные изменения покрыты `order_spec`/`partner_spec`. Фабрика `partner_bonus_operations` больше нигде не используется.
