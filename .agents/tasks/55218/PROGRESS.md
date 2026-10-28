@@ -123,3 +123,13 @@ Companion на d7d586a77 — PASS. Native снял спорные A (комис�
 
 - Вместо удалённого спека ручки — `spec/services/partner_bonuses/apply_operation_spec.rb` (26 примеров): первый `capture` (журнал, бонус `confirmed`, `stat_price`, комиссия, лог заказа), граница 1 ₽, отказы `amount_exceeds_limit`/`amount_exceeds_debt`/`order_canceled`/`discount_conflict`/`bonus_not_enabled`, повторный `capture`, частичный `refund`, `amount_exceeds_balance`, возврат после отключения программы, алерт при возврате на отменённом заказе без полного возврата денег, повтор `operation_id` и конфликт. Фабрика `partner_bonus_operations` снова используется.
 - Мутационная проверка: поломки выбора `kind`, пересчёта финданных, условия алерта, сверки повтора и лимита 1 ₽ роняют соответствующие примеры. Не покрыты: подпись и коды 409/422 ручки, гонка `RecordNotUnique`.
+
+## 2026-10-28 — задача переведена на хотфикс
+
+- Финальное состояние ветки фичи сохранено локальным коммитом `617641d11` («LT-55218 Apply review follow-ups», не запушен) поверх `54234fb80`.
+- Один коммит `HOTFIX: Add partner Alfa miles API for subagent orders`:
+  - `hotfix/partner-alfa-miles-api` от `origin/master` `92cc084e8` → `0e8927c61`, PR #27265 в `master`;
+  - `hotfix/partner-alfa-miles-api-dev` от `origin/develop` `f2493fb19`, cherry-pick без конфликтов → `c85a2d75d`, PR #27266 в `develop`.
+- Worktree: `.claude/worktrees/hotfix-partner-alfa-miles-api` и `.claude/worktrees/hotfix-partner-alfa-miles-api-dev`.
+- Проверки на каждой ветке: спеки `partner_bonuses`, `order`, `partner`, админка партнёров, PAPI `partner`/`payments`/`hooks`/`cancellation`/`subagent_create`, выгрузки альфа-миль — master 310, develop 314 examples, 0 failures; `compile-controller orders 3.16` OK. Ревью-гейт не запускался по решению автора.
+- В задаче LT-55218 (статус «Ревью») комментарий со ссылками. PR #27259 остаётся открытым до решения автора.
