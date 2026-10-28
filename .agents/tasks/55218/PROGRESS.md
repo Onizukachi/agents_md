@@ -133,3 +133,11 @@ Companion на d7d586a77 — PASS. Native снял спорные A (комис�
 - Worktree: `.claude/worktrees/hotfix-partner-alfa-miles-api` и `.claude/worktrees/hotfix-partner-alfa-miles-api-dev`.
 - Проверки на каждой ветке: спеки `partner_bonuses`, `order`, `partner`, админка партнёров, PAPI `partner`/`payments`/`hooks`/`cancellation`/`subagent_create`, выгрузки альфа-миль — master 310, develop 314 examples, 0 failures; `compile-controller orders 3.16` OK. Ревью-гейт не запускался по решению автора.
 - В задаче LT-55218 (статус «Ревью») комментарий со ссылками. PR #27259 остаётся открытым до решения автора.
+
+## 2026-10-28 — индекс журнала `(partner_id, created_at)` убран
+
+### Rejected / changed
+
+- По решению автора из миграции `20261027084608_create_partner_bonus_operations` и `db/schema.rb` убран индекс `(partner_id, created_at)` из спеки. Остались уникальный `(partner_id, external_id)` и `(partner_bonus_id)`. Если сверке второго этапа понадобится выборка операций партнёра за период, индекс добавляется отдельной миграцией.
+- Локально: на тестовой базе миграция прогнана `down`/`up`, на dev-базе индекс удалён. Спеки `spec/services/partner_bonuses` — 95 examples, 0 failures на обеих ветках.
+- Коммиты пересобраны и запушены с `--force-with-lease`: master `0e8927c61` → `80a4a6cf2`; develop заново от `f2493fb19` cherry-pick → `57199d951` (было `c85a2d75d`).
