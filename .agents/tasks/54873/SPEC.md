@@ -1,634 +1,343 @@
-# LT-54873 — Единый выбор поставщика заказа: резолвер, снимок, правила в админке
+# LT-54873 — Единый выбор поставщика заказа: резолвер и снимок
 
 ## Summary
 
-Сейчас поставщика заказа выбирают и хранят в пяти местах:
-- юр лицо пакета A;
-- вычисляемое на лету `detected_*` B;
-- снимок чеков LT-54329;
-- юр лицо в оплатах оператору;
-- `MAX(...)` в шапке 1С.
+LT-55181 (автор задачи, влит и выкачен 30.10.2026) задал правила выбора юр лица для заказов Динамики: туры на 113, отели по поставщику из матчинга с типом оператора и юр лицом оплаты, Alfi S (124), «Внешний поставщик» (127), владелец отеля. Правила верные и на проде совпадают со схемой автора, но решение по-прежнему:
+- размазано по `ForPackageQuery`, двенадцати методам `Package` и `OrderDecorator`, `AgentSupplier` и `LineItemsV2::Advanced::Creator`;
+- считается на лету при каждом чтении из живых данных (матчинг, тип оператора, юр лицо оплаты, активность юр лиц, владелец);
+- читается потребителями по-разному: PAPI v3 `operator_info` берёт не ту статью, что договор, справка о стоимости не знает о владельце;
+- пересчитывается молча, в том числе после детализации (30.10 так получилось около 400 заказов, у которых чек на 89, а 1С на новом юр лице).
 
-Поэтому документы одного заказа ссылаются на разные записи. Правила выбора зашиты константами, а поставщик меняется без следа.
+Решение:
+- **Резолвер** — одно место для правил LT-55181. Поведение не меняется, спеки автора остаются регрессией.
+- **Решение** — пять полей: юр лицо пакета, юр лицо поставщика, владелец отеля, оператор договора, источник статьи договора. Принципал для документов — владелец, иначе юр лицо поставщика.
+- **Снимок** `order_supplier_snapshots` с версиями. `packages.operator_organization_id` остаётся копией юр лица пакета из снимка: её читают 1С и сверка.
+- **Одна точка чтения:** текущая версия снимка, а без снимка — тот же резолвер на лету от сохранённого юр лица пакета.
+- **Бэкфил** снимков всем заказам с 12.10.2026 (`Package::DYNAMIC_SUPPLIER_RULES_SINCE`), заказы до этой даты остаются на лету. Граница одна, авторская.
+- **Пересчёт** только по явным событиям, с новой версией и логом. После детализации автоматические пересчёты пропускаются, остаётся кнопка в админке.
 
-**22.10.2026 автор задачи (Константин Ермольчев) прислал новую схему выбора** (`organization_detection.png`). Прежний вариант с юр лицом продажи по организации Динамики отменён. Новая схема:
-
-Порядок проверок для отелей уточнён 23.10 и согласован с автором: владелец проверяется раньше матчинга.
-
-| Ветка | Условие | Оператор договора | Принципал (договор, чек) | Поставщик для 1С |
-|---|---|---|---|---|
-| 1 | тур Динамики (78, 104) | 78 | OperatorOrganization 113 | 113 |
-| 2 | тур или отель другого оператора | оператор пакета | его юр лицо: гео, затем основное | то же |
-| 3 | отель Динамики в России или Абхазии, владелец найден | 78 | HotelOrganization (владелец) | юр лицо ТО из матчинга (гео, затем основное), иначе «Внешний поставщик» |
-| 4 | отель Динамики, поставщик в матчинге | ТО из матчинга | его юр лицо: гео, затем основное | то же |
-| 5 | отель Динамики в России или Абхазии без владельца | 78 | «Внешний поставщик» | то же |
-| 6 | остальные отели Динамики | 78 | OperatorOrganization 124 «Alfi S» | то же |
-
-Ключевые решения:
-- **В снимке тип принципала полиморфный:** OperatorOrganization или HotelOrganization. Принципала читают договор, чек и 1С.
-- **В снимке есть ещё системное юр лицо** — OperatorOrganization оператора пакета. Его пишем в `packages.operator_organization_id`: по нему сверка ищет заказ, от него зависит `is_split` при оплате. Совпадает с принципалом везде, кроме веток 3 и 4, где это «Внешний поставщик». Позиции чека и оплаты оператору по умолчанию берут принципала, а системное юр лицо — только когда принципал — владелец отеля (HotelOrganization).
-- **Из `misc_data` нужен только поставщик:** `supplier_id` при поиске отеля и `acm_supplier_id` после актуализации. Он переживает актуализацию, поэтому снимок можно считать резолвером при создании заказа и при пересчёте.
-- **Пересчёт только явный:** смена вылета, «Замена пакета», кнопка. С новой версией снимка и записью в лог.
-- **Договор:** поиск статьи не меняем. Чеки старого флоу работают через `AgentSupplier`, как сейчас.
-
-Открытые вопросы — в Further notes. Главные:
-- Q24 закрыт 23.10: `is_split` у 124 и у «Внешнего поставщика» ставим как у 89 (`1`). Флаг — легаси: он влияет только на лимит capture, модалку покупателя в legacy-чекауте и флаг в 1С.
-
-Ответы 23.10: Q21 и Q22 — новое юр лицо «Внешний поставщик» (оператор 78, реквизиты-заглушки до данных от бизнеса); Q23 — Versal тоже Динамика; ИНН берём как есть в данных.
+Решения пользователя от 30.10: правила переезжают в резолвер; бэкфил с 12.10; после детализации — только кнопкой; тесты — табличный спек резолвера и регрессия потребителей.
 
 ## Problem
 
-Мы продаём тур как агент поставщика (принципала). Значит, у заказа должен быть один принципал, и он должен совпадать во всех документах:
-- в договоре с клиентом;
-- в агентском блоке чека;
-- в оплате оператору;
-- в выгрузке 1С.
+Мы продаём тур как агент поставщика (принципала). У заказа должен быть один поставщик, и все документы должны его называть одинаково:
+- договор с клиентом;
+- агентский блок чека;
+- справка о стоимости, личный кабинет и PAPI;
+- выгрузка 1С и сверка операций.
 
-Сейчас каждый из этих потребителей выбирает поставщика сам, по своим правилам и в свой момент. Отель Островка через Динамику:
-- договор оформлен по статье B2Bostrovok;
-- в чеке стоит юр лицо 24 «Агентика»;
-- в оплате оператору и 1С — 102 «Агентика» или 89 «ГорТревел»;
-- в пакете записано 89.
-
-По ИНН это одна компания, но под тремя разными id. Иногда это разные компании: шапка 1С собирает id и ИНН из разных оплат.
-
-Правила зашиты в код (113, 49/50/51, `ORDER_SUPPLIER_IDS`, `EXTERNAL_DYNAMIC_IDS`). С 16.09 юр лицо 113 «ТО Динамические пакеты» протаскивали хотфиксами в загрузчики реестров (LT-54906, LT-54780), в 1С (#27206/#27207) и в бейдж менеджерки. Следующее юр лицо (124 для зарубежных отелей) потребовало бы того же.
-
-Поставщик у заказа может смениться без следа и пересчёта:
-- актуализация перезаписывает `misc_data`;
-- правят матчинг внешних поставщиков или гео юр лиц;
-- менеджер меняет вылет или заменяет пакет.
-
-Договор оплаченного заказа после этого пересобирается сам.
+После LT-55181 правила выбора стали правильными, но:
+- **Решение не хранится.** Каждый потребитель пересчитывает его сам в момент чтения. Договор и чек оплаченного заказа меняются, если поправить тип оператора, юр лицо оплаты, активность или гео юр лица поставщика, или если в реестре появится владелец отеля. `Order#try_update_agreement` при этом молча пересоберёт PDF договора.
+- **Правила в нескольких местах.** Выбор юр лица пакета — в `ForPackageQuery`. Признаки договора и владельца выводятся заново из уже сохранённого юр лица пакета (`paid_through_payment_organization?`, `supplier_operator_organization?`, `external_supplier_organization?`) в `Package` и `OrderDecorator`. Новое правило приходится протаскивать по всем этим местам, как это было с 113, 124 и 127.
+- **Потребители расходятся.** PAPI v3 `operator_organization.operator_info` всегда берёт статью оператора пакета, а договор — статью поставщика или блок владельца. Справка о стоимости показывает юр лицо поставщика, а договор и чек — владельца.
+- **Пересчёт без следа и без ограничений.** `recalculate_organizations` 30.10 перевёл пакеты всех заказов с 12.10, включая уже детализированные. Лога смены поставщика нет, версии нет.
 
 ## Solution
 
-У каждого заказа есть снимок поставщика. Его записывают при создании заказа, и все документы читают его, а не пересчитывают поставщика сами.
+Для каждого заказа есть одно решение о поставщике:
 
-| Поле снимка | Тур Динамики | Отель Островка | Отель в Сочи (владелец в реестре) | Отель в Турции (поставщик не в матчинге) |
-|---|---|---|---|---|
-| Оператор договора | 78 | 72 B2Bostrovok | 78 | 78 |
-| Принципал | OperatorOrganization 113 | OperatorOrganization 24 «Агентика» | HotelOrganization (владелец) | OperatorOrganization 124 «Alfi S» |
-| Поставщик для 1С | 113 | 24 «Агентика» | юр лицо ТО из матчинга или «Внешний поставщик» | 124 |
-| Системное юр лицо | 113 | «Внешний поставщик» | «Внешний поставщик» | 124 |
+| Поле | Тур Динамики | Отель Островка в Турции | Отель Отелло в Сочи с владельцем | Бенуар в ОАЭ (Алибаба) | Отель без поставщика в Турции | OneTwoTrip в Турции (нет юр лица) |
+|---|---|---|---|---|---|---|
+| Юр лицо пакета | 113 | 24 «Агентика» | 128 «ДубльГИС» | 124 Alfi S | 124 | 127 ВП |
+| Юр лицо поставщика | 113 | 24 | 128 | 124 | 124 | 127 |
+| Владелец отеля | — | — | HotelOrganization | — | — | — |
+| Оператор договора | 78 | 72 | 99 | 78 | 78 | 97 |
+| Источник статьи | `operator` (`…_78_operator_org_113`) | `supplier` (`agreement_operator_info_72`) | `supplier` (блок владельца вместо статьи) | `operator` (`…_78_operator_org_124`) | `operator` (`…_78_operator_org_124`) | `supplier` (`agreement_operator_info_97`, сейчас её нет) |
 
 Кто что читает:
-- **Договор** — оператора договора и системное юр лицо (выбор статьи), как сейчас. Владелец — блоком владельца, как сейчас.
-- **Чек** — принципала для агентского блока, системное юр лицо для `line_items_v2.supplier_id`.
-- **Шапка 1С** — поставщика для 1С: кому заплатили. Отличается от принципала только у отеля с владельцем.
-- **Справка о стоимости и PAPI v3** — принципала, включая владельца.
-- **Сверка операций** ищет заказ по системному юр лицу.
-- **Оплата оператору** по умолчанию получает принципала, если он OperatorOrganization, а при владельце отеля — системное юр лицо. Только если получатель не задан явно.
+- **1С, сверка, оплаты оператору по умолчанию, `is_split`, письма о трансфере, заявки ТО** — юр лицо пакета через `packages.operator_organization_id`, как сейчас. Колонка всегда равна юр лицу пакета из текущего снимка.
+- **Договор** — оператора договора и источник статьи; при владельце — блок владельца.
+- **Чек** — юр лицо поставщика в `line_items_v2.supplier_id`, владельца в `info_data[:hotel_organization_id]`. Новый флоу АК закрепляет агента первого аванса, как сейчас, а детализация делает перенос на текущего агента.
+- **Справка о стоимости, PAPI v3 `operator_organization`, `Order#price_info`, Альфа-Мили** — принципала: владельца, иначе юр лицо поставщика. `operator_info` в PAPI v3 — тот же текст, что в договоре.
 
-Правила выбора переезжают в данные и админку: матчинг внешних поставщиков с флагом `active`, юр лицо 124. Поставщик меняется только явно, с новой версией снимка и записью в лог.
+Решение записывается при создании заказа и меняется только явно: смена вылета или оператора пакета, смена типа поиска в ручном заказе, «Замена пакета», массовый пересчёт после смены правил, кнопка в админке. Каждая смена — новая версия снимка и запись в лог заказа. После детализации меняет поставщика только кнопка.
 
 ## Current system state
 
-Факты на 21–22.10.2026: `develop` и прод (Redash Replica). Обозначения: **A** — `packages.operator_organization_id`, **B** — `Package#detected_operator_organization`.
+Факты на 30.10.2026: `develop` = `762b96fa0` (мерж #27230) и прод (Redash Replica). Прод работает на релизе `07fc0a13d` с 13:30 UTC 30.10.
 
 ### Термины в коде и данных
 
-- `Order#organization_id` — наше юр лицо-продавец (АК = 7 у всех новых заказов, ЛТ, ЛП).
-- `packages.operator_id` — оператор, источник предложения. У Динамики всегда 78 «Level.Travel» (`Operator::DYNAMIC_IDS = [78, 104]`, 104 — Versal).
-- `operator_organizations` — юр лица операторов. У оператора 78 на проде 23 записи:
-  - 89 «ГорТревел» — `main`, `external_id = 4`;
-  - 113 «ТО Динамические пакеты» — `external_id = 9`;
-  - 97 АК (неактивна);
-  - 116 «ОШИБКА НЕ ВЫБИРАТЬ»;
-  - 124 «TOO Alfi S» — неактивна, ИНН `000000000000`, заведена 13.10;
-  - реестровые поставщики 102–123.
-- Одна компания заведена несколькими записями:
-  - «Агентика Тревэл» (ИНН 7703403951): 24 под B2Bostrovok (72), 102 и 116 под 78;
-  - «ГорТревел» (ИНН 9721095485): 89 под 78 и 86 под Let's Fly (95).
-- Скоуп `OperatorOrganization.active` означает `main AND active` (`app/models/operator_organization.rb:57`). `lt`, `lp`, `ak` и `renins` ищутся по названию (`:64-79`), `licence` — по id 51.
+- `Order#organization_id` — наше юр лицо-продавец (АК = 7 у всех новых заказов).
+- `packages.operator_id` — оператор, источник предложения. Динамика — 78 «Level.Travel», Versal — 104 (`Operator::DYNAMIC_IDS = [78, 104]`, `Operator#is_dynamic?`).
+- `OperatorOrganization.active` означает `main AND active` (`app/models/operator_organization.rb:57`).
+- Юр лица Динамики: 89 «ГорТревел» (main, `is_split = 1`), 113 «ТО Динамические пакеты» (`DYNAMIC_PACKAGES_ID`), 124 TOO «Alfi S» (`DYNAMIC_FOREIGN_HOTELS_ID`, активно с 30.10, ИНН `000000000000`), 127 «Внешний поставщик» (`EXTERNAL_SUPPLIER_ID`, неактивно намеренно, берётся по id, ИНН `000000000000`). У 113, 124 и 127 `is_split = 0`.
+- **Матчинг** `external_dynamic_matchings`: поставщик Динамики (`dynamic_operator_id`) → наш оператор. На проде 35 записей с 30.10. `ExternalDynamicMatching.operator_id_for(id, created_before:)` (`app/models/external_dynamic_matching.rb:11`) учитывает только записи, созданные раньше `created_before`, а без записи берёт константу `OperatorOrganization::EXTERNAL_DYNAMIC_IDS`.
+- **Тип оператора** `operators.kind`: `operator` (туроператор, по умолчанию) или `supplier` (агрегатор, авиа, страховая, Алибаба) (`app/models/operator.rb:72-73`). Поставщики: 72, 73, 79, 85, 86, 96–99, 101–103, 105, 107, 108, 112, 118, 119.
+- **Юр лицо оплаты** `operators.payment_operator_organization_id` — через кого платим поставщику. У поставщиков Алибабы (102, 103, 105, 112, 118, 119) это 124.
+- Копии юр лиц реестровых поставщиков на их операторах (30.10): 128 Отелло (99), 129 Академ (86), 130 ХБ-Про (96), 131 Випсервис (98), 132 Мой Агент (101), 133 Русские Сезоны (93); 115 Бенуар (112) включено. Оригиналы под 78 (120, 119, 104, 121, 85, 126) остались: на них ссылаются оплаты и операции.
 
-### Выбор A при создании пакета
+### Входы решения
 
-- Оператор: `Package::PackageBuilder` ставит `operator_id: tour[:operator]` (`app/services/package/package_builder.rb:95`).
-- `Package after_create :set_operator_organization` (`app/models/package.rb:77,1309-1316`) пишет через `update_columns`, мимо колбэков и paper_trail. Если поле уже заполнено, он ничего не делает.
-- Выбор делает `OperatorOrganizations::ForPackageQuery#call` (`app/queries/operator_organizations/for_package_query.rb:27`) по порядку:
-  1. сертификат → `OperatorOrganization.lt`;
-  2. `external_id` из `misc_data[:operator_organization_id]` или `pb_tour.misc_data`;
-  3. гео: города `only` / `except` и страны, 4 уровня;
-  4. фолбэк — `active` (main) юр лицо с наибольшим `priority`.
-- **Правила «тип поиска» в коде нет** ни в одной ветке. Константы «тип поиска → юр лицо» тоже нет: проверено на `origin/develop` 22.10. Правила, которые захардкожены рядом с выбором поставщика:
-  - `Package#external_dynamic_agreement?` — внешний поставщик только при `search_type == HOTEL` (`app/models/package.rb:1360`);
-  - `OrderDecorator#hotel_owner_details?` — владелец отеля только при `orders.search_type == hotel`;
-  - `OperatorOrganization::DYNAMIC_PACKAGES_ID = 113`: бейдж менеджерки (`app/serializers/order_serializer.rb:72`), подмена строки тура в 1С (хотфикс #27207, `app/services/accounting/repo.rb:51,68,102`), `ORDER_SUPPLIER_IDS` загрузчиков;
-  - `Accounting::AutoDynamicPayments::BaseSyncer::SUPPLIER_ID = 113`;
-  - фолбэк `ForPackageQuery` берёт только `main`, поэтому тур без организации от Динамики уходит на 89.
-- Фильтр городов вылета (`OperatorOrganization#allows_departure?`, хотфикс 05b6191db от 21.08) применяется так:
-  - к кандидатам гео;
-  - в фолбэке он не фильтрует, а только шлёт warning в Sentry (`report_forbidden_departure`);
-  - к `external_id` не применяется.
+- Тип поиска: `Package#organization_search_type` (`app/models/package.rb:874`) — `pb_tour.search_type`, у ручного пакета — `orders.search_type`. У пакетов без `pb_tour` тип — `PACKAGE`. Признаки договора и владельца читают тип поиска пакета (`external_dynamic_agreement?`) и заказа (`Order#hotel?`, `order.rb:2022`).
+- Поставщик: `misc_data[:supplier_id].presence || misc_data[:acm_supplier_id]` (`package.rb:1389`). При поиске отеля есть только `supplier_id`, после актуализации — оба, они равны. Оба ключа переживают актуализацию, которая заменяет `misc_data` целиком.
+- Граница правил: `Package::DYNAMIC_SUPPLIER_RULES_SINCE` = 12.10.2026 (`package.rb:22`), сравнивается с `order.created_at`, а до заказа — с `created_at` пакета (`dynamic_supplier_rules?`, `package.rb:1396`). Заказы до неё видят только матчинги, заведённые до неё.
+- Страна отеля, город вылета, сертификатный отель (`Package::CERTIFICATE_HOTEL_ID`), `misc_data[:operator_organization_id]` (`external_id` юр лица), справочники юр лиц и их гео.
+- Владелец: `hotel.hotel_organizations.active_at(order.created_at).latest_first.first` с адресом или ОГРН; флаг `Settings.hotel_owner_details_in_agreement?` (Redis, на лету); `OrderDecorator::HOTEL_OWNER_DETAILS_SINCE` = 14.09.2026.
 
-  Это образец для фильтра по типу поиска.
-- `Order after_create :set_operator_organization` (`app/models/order.rb:415,4693`) вызывает метод пакета, а тот сразу выходит, потому что поле уже заполнено. Решение принимается при создании пакета во время поиска или актуализации, до заказа.
-- Копии пакета переносят A как есть: `PackagesController#copy`, PAPI `ensure_orderable` (`app/controllers/papi/v3/packages_controller.rb:31`), повтор при дубле в `app/models/concerns/order_creation.rb:50`. Колонка входит в `MASS_ASSIGNABLE_ATTRIBUTES`.
+### Выбор юр лица пакета
 
-### Как Динамика задаёт 89/113
+`OperatorOrganizations::ForPackageQuery#call` (`app/queries/operator_organizations/for_package_query.rb:42`), по порядку:
+1. сертификатный отель → `OperatorOrganization.lt`;
+2. отель Динамики (только 78, `dynamic?`, `:66`), `dynamic_hotel_organization` (`:80`):
+   - поставщик из матчинга есть → юр лицо оплаты его оператора (активное, если отель не в России, Абхазии, Беларуси — `Package::SUPPLIER_DIRECT_PAYMENT_COUNTRY_IDS`), иначе юр лицо его оператора по гео, затем основное (`geo_call` на операторе поставщика);
+   - поставщика нет: Россия и Абхазия (`RUBLE_HOTEL_COUNTRY_IDS`) → ничего; иначе 124, если активно;
+   - не нашлось → 127 по id; без записи 127 — фолбэк (89);
+3. тур Динамики → 113, если активно;
+4. `external_id` → гео (4 уровня, с фильтром городов вылета) → фолбэк (основное активное с наибольшим `priority`, warning в Sentry при запрещённом вылете).
 
-- В ответе поиска тура Динамика присылает `misc_data[:operator_organization_id]`: `'9'` даёт 113, `'4'` даёт 89. У отелей ключ не приходит никогда, поэтому A = 89 по фолбэку. У юр лиц оператора 78 гео не настроено.
-- Актуализация заменяет `misc_data` целиком: `Package#load_relevant_values` выполняет `self.misc_data = new_misc_data` (`app/models/package.rb:274`), а значение берётся из `Actualization::Proxy#extract_relevant_values`. Вместе с ключом пропадает и `original_meal_name`.
-- Свежие пакеты-туры оператора 78 на 21.10:
+Versal (104) не попадает в ветки 2 и 3: его отели и туры идут по `external_id`, гео и фолбэку.
 
-  | Пакеты | Ключ есть |
-  |---|---|
-  | не актуализированы | 20 299 из 23 613 |
-  | после актуализации | 310 из 55 738 |
+Кто вызывает (`Package#detect_operator_organization`, `package.rb:1359`):
+- `after_create :set_operator_organization` (`:84`, `:1324`) — при создании пакета, `update_columns`, если поле пусто;
+- `before_save :update_operator_organization` (`:87`, `:1352`), если меняется `operator_id` или `departure_id` у сохранённого пакета — и у пакетов с заказом тоже. Дальше `assign_operator_agreement_version` (`:88`, `:1129`) и `after_save :try_update_orders_agreements` (`:115`, `:1538`);
+- `Order after_create :set_operator_organization` (`app/models/order.rb:412`, `:4713`) и `after_update :refresh_manual_operator_organization` при смене `search_type` или `package_id` (`:431`, `:4718`) — `Package#refresh_operator_organization` (`package.rb:1342`): пересчёт ручного пакета 78 через `update_columns` вместе с версией договора, затем `log_operator_organization`;
+- rake `external_dynamic_matchings:recalculate_organizations` — `refresh_operator_organization` всем пакетам 78 с заказами с 12.10. Детализированные заказы не пропускает.
+- «Замена пакета» (`Order::Operations::AssignPackageOperation#replace_package`) приносит юр лицо нового пакета; у ручного пакета 78 его пересчитывает `refresh_manual_operator_organization`.
+- `Order#log_operator_organization` (`order.rb:4696`) пишет в лог «Заказ от поставщика <имя>» (только 78/104) и «Не найден поставщик для пакета» (`Package#dynamic_hotel_without_supplier?`).
 
-- Октябрьские заказы на 113: у 1 234 из 1 340 ключа уже нет. Повторный прогон `ForPackageQuery` по текущему пакету выдаст 89.
-- С 15.10 туры Динамики почти все на 113, отели все на 89.
-- Загрузчики знают ту же пару «юр лицо ↔ организация Динамики». Комментарий в `Accounting::Constants::Ostrovok`: «Заказы продаются через ГорТревел (бронь в организации Динамики 8) или через «Динамические пакеты» (бронь в организации 9)». Ещё один — в `app/services/accounting/dynamics_organizations_enricher.rb:4`.
-- **Организации Динамики** (проверено в прод-консоли 22.10, скрипт `tmp/lt54873_q13_check.rb`, вызовы `booking_info` и `booking_info_by_supplier_order_id`):
+### Признаки договора и владельца
 
-  | Заказ | Что это | Юр лицо пакета | Ответ поиска | `components[].component.organization_id` в брони | Где бронь находится по номеру поставщика |
-  |---|---|---|---|---|---|
-  | 370466621 | отель Островка | 89 | — | 8 | только в 8 |
-  | 370875572 | тур | 89 | `'4'` | 4 | только в 4 |
-  | 373275528 | тур | 113 | (стёрт) | 9 | номеров поставщиков в заказе нет |
-
-  Выводы:
-  - справочник один: ответ поиска `operator_organization_id` — это номер организации Динамики, в которой будет бронь, и `external_id` хранит его же;
-  - у одного нашего юр лица может быть несколько организаций Динамики: у 89 это 4 (туры, ответ поиска) и 8 (отели, в поиске не приходит);
-  - организацию записывает и сама бронь, в каждом компоненте. В трёх проверенных бронях все компоненты в одной организации.
-- Константы загрузчиков с тем же смыслом (`app/services/accounting/constants.rb`):
-  - `Gortravel` и `GortravelAnex`: `DYNAMICS_ORGANIZATION_ID = 4`;
-  - `MyAgent` и `TravelTourismTechnologies`: `1`;
-  - Островок, HBPro, Э-Холидейз, Академ, Отелло: `[8, 9]`;
-  - Випсервис: `[9, 8]`.
-
-  В списки `[8, 9]` организация 4 не входит. Туры, проданные через ГорТревел в организации 4 (до 113 так шли все туры), эти загрузчики по номеру поставщика не находят (вопрос Q17).
-
-### Остальное в `misc_data` пакета Динамики
-
-| Ключ | Что это | Кто читает |
-|---|---|---|
-| `acm_supplier_id` | поставщик проживания в Динамике: 2 Островок, 5 BG, 12 Anex, 14 Let's Fly, 24 Pegast, 41 Бенуар… | матчинг внешних поставщиков; 1С (Бенуар, `tour_end_exportable.rb:267`); TourSentry; аналитика |
-| `acm_component_id` | компонент проживания | бронь (`app/apis/operator_api/leveltravel/prebook.rb:89-101`), актуализация отеля |
-| `route_component_id` | перелёт; `>` разделяет составной маршрут | аналитика (`app/services/actualization/proxy.rb:659-665`); признак тура |
-| `book_hash`, `route_book_hash`, `bundle_id` | ключи брони | бронь (`prebook.rb:52-75`) |
-| `supplier_id` | у отелей то же, что `acm_supplier_id` | лог актуализации отеля |
-
-`acm_supplier_id` переживает актуализацию, но тоже приходит из её ответа.
-
-### Паттерны `misc_data` Динамики (анализ 22.10.2026)
-
-Данные:
-- каждый 15-й пакет оператора 78 за 16–22.10, 11 799 пакетов. Пакеты без заказа Replica хранит около недели;
-- каждый 4-й заказ Динамики с 01.2025, 33 199 заказов.
-
-Скрипты лежат в scratchpad сессии, сохранённые запросы в Redash не создавались.
-
-**Ключи по этапам.** Актуализация заменяет `misc_data` своим набором ключей:
-
-| Этап | Тур | Отель |
-|---|---|---|
-| Поиск | `acm_component_id`, `acm_supplier_id`, `book_hash`, `bundle_id`, `route_component_id`, `operator_organization_id`, `original_meal_name` | `acm_component_id`, `supplier_id`, `original_meal_name` (без `acm_supplier_id` и `book_hash`) |
-| После актуализации | те же без `operator_organization_id` и `original_meal_name`, плюс `route_book_hash` | `acm_component_id`, `acm_supplier_id`, `supplier_id` (= `acm_supplier_id`), `book_hash` |
-
-- Внешнего поставщика у отеля до актуализации определить нельзя: `acm_supplier_id` появляется только после неё.
-- Копии из PAPI `ensure_orderable` сбрасывают `actualized_at`, но сохраняют `misc_data` после актуализации, то есть без ответа Динамики. В выборке таких 253.
-- Формат YAML бывает трёх видов: строковые ключи, ключи-символы и `HashWithIndifferentAccess`. На логику это не влияет: `Package#misc_data` приводит всё к `with_indifferent_access`.
-
-**Формат id компонента: `SS OO CC` + `::` + хеш.** Это вывод по данным, Динамика его не подтверждала (вопрос Q19).
-- **`SS`** — поставщик в Динамике. У компонента проживания он совпадает с `acm_supplier_id` в 100% случаев. Компоненты страховки — поставщик 09: так же `OperatorPaymentsManager::RENINS_SUPPLIER_ID = 9` обозначает Ренессанс. Перелёты — поставщики 01 (73%), 22 (20%) и 05 (7%).
-- **`OO`** — организация Динамики:
-  - одинакова у всех компонентов пакета (100% из 33 199 заказов и 11 799 пакетов);
-  - совпадает с ответом поиска (`9` → `09`, `4` → `04`, `1` → `01`) и с организацией брони из Q13 (`020801…` → 8, `020901…` → 9);
-  - переживает актуализацию: у актуализированных туров `09` → 113 в 100%.
-- **`CC`** — тип компонента: `01` проживание, `02` перелёт одним компонентом, `06` сегмент составного перелёта (два через `>`), `04` страховка.
-- **`bundle_id`** = `01|<перелёт>|<проживание>[|<страховка>]`. Страховка есть в 91% туров.
-
-**Организации Динамики по данным:**
-
-| Организация | Кто | Юр лицо пакета | Период |
-|---|---|---|---|
-| 01 | туры и отели | 92 (ТТТ) | 2025; туры до 07.2025, отели до 09.2025 |
-| 04 | туры (ответ поиска `'4'`) | 89 | 2025 — начало 10.2026, сейчас единичные |
-| 04 | отели поставщиков 20, 7, 27, 6, 13, 17, 16 | 89, раньше 92 или 85 | весь период, доля падает (сейчас ~12% отелей) |
-| 06 | отели поставщиков 27, 4 (Алеан), 2 (Островок), 13 | 89, в 02–06.2026 — 85 | с 02.2026, ~10% отелей |
-| 08 | отели остальных поставщиков | 89 | с 26.06.2026, сейчас ~78% отелей |
-| 09 | туры | 113 | с 22.09.2026, с 12.10 почти все туры |
-
-- У отелей юр лицо пакета всегда выбирал фолбэк, то есть основное юр лицо на тот момент: 92 до 02.2026, 85 в 02–06.2026, 89 с 07.2026. Организация Динамики при этом была 04, 06 или 08. Значит, у отелей юр лицо пакета с Динамикой не связано.
-- Чьё юр лицо организация 06, неизвестно (вопрос Q18). Загрузчики её не перебирают.
-
-### Внешний поставщик Динамики (B)
-
-- `Package#external_dynamic_agreement?` (`app/models/package.rb:1359-1363`) срабатывает, если одновременно:
-  - `pb_tour.search_type == HOTEL` (если `pb_tour` пуст, тип считается `PACKAGE`);
-  - оператор из Динамики;
-  - `ExternalDynamicMatching.operator_id_for(misc_data[:acm_supplier_id])` нашёл оператора. Если записи в БД нет, берётся константа `OperatorOrganization::EXTERNAL_DYNAMIC_IDS`. На проде в таблице 14 пар.
-- `detected_operator` — внешний ТО. `detected_operator_organization` — `ForPackageQuery(operator_id: внешний ТО)#geo_call`: только гео и фолбэк, сертификат и `external_id` пропускаются (`for_package_query.rb:31-35`). Значение нигде не хранится и считается при каждом вызове.
-- `OrderDecorator#detected_operator` — дубль метода пакета (`app/decorators/order_decorator.rb:524-531`).
-- Заказы оператора 78 с 01.10:
-
-  | | `acm_supplier_id` есть в матчинге | нет в матчинге |
-  |---|---|---|
-  | Отели | 1 266 (A = 89, B — юр лицо внешнего ТО) | 1 894 (A = B = 89) |
-  | Туры | 1 365 (матчинг не применяется, B = A) | 928 (B = A) |
-
-### Пересчёт A
-
-- `before_save :update_operator_organization`, если пакет уже сохранён и меняется `operator_id` или `departure_id` (`app/models/package.rb:80,1318-1323,1516-1518`). Срабатывает и у пакетов без заказа. Пересчёт идёт по текущему `misc_data`, поэтому 113 молча становится 89. Лога нет.
-- Цепочка дальше: `assign_operator_agreement_version` (`:81,1520-1524`) → `after_save :try_update_orders_agreements` → перегенерация договора.
-- Оператора у пакета заказа менеджер сменить не может: `Manager::PackagesController#update` подставляет старый (`app/controllers/manager/packages_controller.rb:43`). Вылет — может.
-- **«Замена пакета»** (`Order::Operations::AssignPackageOperation#replace_package`, `app/services/order/operations/assign_package_operation.rb:139`) — основной путь смены поставщика. Заказ получает другой пакет со своими A и оператором. Пересчёта нет, в лог пишется только «Замена пакета» (`kind: package_replace`). С 16.09 было 571 замена, в 179 из них поменялось юр лицо (например, 78 → 8, 7 → 78).
-- Без пересчёта B «плывёт» сам: от `acm_supplier_id` после актуализации, правок матчинга и гео юр лиц внешнего ТО.
+Выводятся на лету из сохранённого юр лица пакета P (`package.rb:1389-1457`, `app/decorators/order_decorator.rb:213-255`, `:526-552`):
+- `external_dynamic_operator_id` S — поставщик из матчинга с учётом границы 12.10;
+- `paid_through_payment_organization?` — P задано, страна не Россия, Абхазия, Беларусь, S — `kind_supplier?` и `S.payment_operator_organization_id == P`;
+- `external_dynamic_agreement?` — тип поиска пакета `hotel`, оператор `is_dynamic?` (78, 104), S найден, и не `paid_through_payment_organization?`;
+- `detected_operator` — S при `external_dynamic_agreement?`, иначе оператор пакета (дубль в `Package` и `OrderDecorator`);
+- `detected_operator_organization` — P, если не `external_dynamic_agreement?`, иначе `geo_call` на операторе S (может быть `nil`);
+- `supplier_operator_organization?` — `external_dynamic_agreement?` и P принадлежит оператору S;
+- `external_supplier_organization?` — P = 127; `dynamic_rules_organization?` — P = 127 или `supplier_operator_organization?`;
+- `OrderDecorator#supplier_with_organization?` — `external_dynamic_agreement?` и P ≠ 127;
+- `supplier_agreement_details?` — `supplier_with_organization?` и не (`supplier_operator_organization?` и S — поставщик). То есть туроператор и старые заказы на 89 всегда идут реквизитами оператора S;
+- `hotel_owner_country?` — при `supplier_with_organization?` только Россия, иначе Россия или Абхазия при `dynamic_rules_organization?`;
+- `hotel_owner_details?` — флаг Settings, `orders.search_type == hotel`, заказ не раньше 14.09.2026, оператор `is_dynamic?`, не `supplier_agreement_details?`, `hotel_owner_country?`, владелец известен.
 
 ### Договор
 
-- Реквизиты поставщика в договоре — это текст CMS-статьи. Имя: `agreement_operator_info_<оператор>[_org_<наша организация>][_operator_org_<юр лицо>]_ver_<версия>` (`app/services/operator_agreement_manager.rb:37-46`).
-  - `_org_` добавляется только у BG (7).
-  - `_operator_org_` добавляется только у операторов Динамики (78, 104).
-- `OrderDecorator#operator_agreement_manager` = `OperatorAgreementManager.new(detected_operator, organization_id, A)` (`order_decorator.rb:509-511`). Отсюда:
-  - **обычный ТО:** статья по оператору, A не участвует;
-  - **свой продукт Динамики:** `…_78_operator_org_89` или `…_78_operator_org_113`;
-  - **внешний отель:** статья внешнего ТО, например `agreement_operator_info_72` версии 12 с текстом «ООО "Агентика Тревэл"…». Ни A, ни B не участвуют.
-  - Есть ещё статьи `…_78_operator_org_102`, `_116`, `_85`, `_92`.
-- **Договор и чек внешнего отеля могут называть разные юр лица** (проверено 22.10). Договор берёт статью оператора целиком, а в ней одно или несколько юр лиц. Чек берёт одно юр лицо B: гео, затем основное среди активных юр лиц внешнего ТО. Если B в статье не указано, документы расходятся:
+- `OrderDecorator#operator_info` (`order_decorator.rb:213`) — блок владельца при `hotel_owner_details?`, иначе текст статьи `operator_info_article`.
+- `operator_agreement_manager` (`:530`) = `OperatorAgreementManager.new(detected_operator, organization_id, P)`. Имя статьи `agreement_operator_info_<оператор>[_org_<наша организация>][_operator_org_<P>]_ver_<версия>` (`app/services/operator_agreement_manager.rb:37-46`); `_operator_org_` только у 78 и 104, `_org_` только у BG (7).
+- `operator_info_version` (`:535`):
+  - `external_dynamic_agreement?` — статья `agreement_operator_info_<S>` с `start_date` раньше даты заказа, `.last&.version`; без неё — последняя активная (`Article.find_by_name_with_version`), без статьи вообще — пустой раздел;
+  - 78 и 104 — максимальная активная версия по `_operator_org_<P>` сегодня;
+  - остальные — `packages.operator_agreement_version`.
+- PDF договора пересобирается при любом сохранении заказа или пакета, если поменялся MD5 текста (`Order#try_update_agreement`, `order.rb:2315`), в том числе у оплаченных заказов.
+- Статьи на 30.10: `…_78_operator_org_124` есть (v3 с 12.10.2026), `…_78_operator_org_127` нет. `agreement_operator_info_<op>` созданы rake-задачей `supplier_agreements` для 86, 96, 98, 99, 101, 112 (только наименование, ИНН, телефон; у 101 — копия статьи 85), нет у 79, 85, 93, 97, 107, 108 и операторов Алибабы без своих юр лиц.
 
-  | Внешний ТО | В статье договора | Активные юр лица | Чеки с 16.09 |
-  |---|---|---|---|
-  | Russian Express Online (73) | только 66 «Русский Экспресс-Онлайн», ИНН 7709474148 (все версии, последняя v8 от 06.05.2026) | 111 «Э-Холидейз»\* (ИНН 7704732998, заведено основным 13.08.2026), 66 | с 14.08 82 заказа на 111 — **расходятся с договором**. Бизнес подтвердил (22.10), что оператора теперь обслуживает Э-Холидейз, то есть чек верен, а статью договора не обновили |
-  | ICS (8) | 42, 57 и ещё ИНН 7726433624 | 42\*, 57, 69 «АЙ СИ ЭС Тревел Сервис» (ИНН 7729735895, в статье нет) | на 69 чеков не было |
-  | Space Travel (45) | 36 и 80 (версия 13) | 36\*, 80 | 21 заказ на 80, совпадает со статьёй |
-  | Пакс (21) | 53 и 54 | 53\*, 54 | совпадает |
+### Чеки
 
-  \* — основное юр лицо (`main`). У остальных внешних ТО (Островок, Pegast, Anex, BG, Алеан, Let's Fly…) одно активное юр лицо, и расхождения нет. Та же логика действует и у прямых операторов: у Space Travel (45) напрямую 95 заказов на 80.
-- Версия статьи (`order_decorator.rb:514-522`):
-  - у Динамики — максимальная активная **сегодня**, `operator_agreement_version` игнорируется;
-  - у внешнего ТО — SQL по `start_date < даты заказа` и `.last`;
-  - у остальных — `package.operator_agreement_version`.
-- Владелец отеля (`order_decorator.rb:213-234`) подставляется вместо статьи, если выполнены все условия:
-  - флаг `Settings.hotel_owner_details_in_agreement?` (Redis, читается на лету);
-  - `orders.search_type == hotel`;
-  - заказ не раньше `HOTEL_OWNER_DETAILS_SINCE` = 14.09.2026;
-  - оператор из Динамики и не внешний;
-  - Россия;
-  - у владельца есть адрес или ОГРН.
+- Агент тура в позиции: `LineItemsV2::Advanced::Creator.tour_supplier_id` (`app/services/line_items_v2/advanced/creator.rb:8`) = `detected_operator_organization&.id || order.operator_organization.id`, фиксируется при создании позиции. `supplier_id` обязан ссылаться на OperatorOrganization: от него зависит НДС допуслуг.
+- `FiscalProcessor::AgentSupplier` (`app/apis/fiscal_processor/agent_supplier.rb`):
+  - `.hotel_owner_id(order)` — владелец при `hotel_owner_details?`;
+  - старый флоу — владелец для строки заказа, если `hotel_owner_details?` и нет детализации до 29.09.2026 (`HOTEL_OWNER_RECEIPTS_SINCE`), иначе `line_item.supplier`;
+  - новый флоу АК — владелец из `receipts.info_data[:hotel_organization_id]`.
+- Новый флоу АК (LT-54329, заказы АК с 14.10.2026 15:00 МСК, флаг `orders.data[:agent_receipts]`):
+  - `Receipts::AgentFlow.tour_agent` (`app/services/receipts/agent_flow.rb:89`) = `Agent(tour_supplier_id, hotel_owner_id)` — текущий агент;
+  - `Receipts::AgentFlow::Snapshot` (`orders.data[:agent_receipts_supplier]`) — агент первого аванса, пишется под `Order.lock` и не меняется; авансы и их возвраты идут на него;
+  - детализация (`Receipts::AgentFlow::Detailing`, `:268-275`) берёт текущего агента; если он отличается от агента авансов, план делает перенос;
+  - детализации идут каждую ночь в 00:01 МСК, по заказам 78 около 47 в день.
 
-  Сам владелец выбирается как `active_at(order.created_at)` на лету.
-- Договор рендерится на лету. При `confirmed` сохраняется PDF, но `Order#try_update_agreement` (`app/models/order.rb:2315`) пересобирает его при любом сохранении заказа или пакета, если поменялся MD5 текста. Это касается и оплаченных заказов, вплоть до `hotel_confirmed`.
+### Остальные потребители
 
-### Агентский блок чека
+| Место | Что читает сейчас |
+|---|---|
+| `Accounting::Repo#dynamic_tour_supplier_join` (`app/services/accounting/repo.rb:102-125`), `assign_tour_supplier` (`:50-64`) | поставщик тура в 1С = P, если P в [113, 124, 127] или P принадлежит другому оператору; иначе шапка по оплатам оператору |
+| `Order.by_operator_booking_id` (`order.rb:252`), `Accounting::Constants::ORDER_LOOKUP_BY_BOOKING_ONLY` | сверка Динамики ищет заказ по 78 и номеру брони без юр лица пакета; Мой Агент и ТТТ — по своим 85/92 |
+| `OperatorPayment#set_operator_organization_id` (`app/models/operator_payment.rb:406`), `OperatorPaymentsManager:16`, `AutoDynamicPayments::BaseSyncer:268`, `PaymentStatusMatchBuilder:439`, `RefundStatementsQuery:101` | P |
+| `Payment#correct_split_value` (`app/models/payment.rb:487`), `PaymentBuilder`, `Package#show_modal_customer`, `OrdersController:120`, `OrderCreation:451`, `Order::UrlHelpers:71` | `is_split` у P |
+| `Admin::TransferMailGenerator` (`app/admin/transfer_mail_generator.rb:207`), `Order#update_operator_application` (`order.rb:4736`) | P |
+| `StatementTemplates::OrderPriceContentRenderer#supplier_name` (`app/services/statement_templates/order_price_content_renderer.rb:97`) | `detected_operator_organization || P`, без владельца |
+| PAPI v3 `operator_organization` (`app/views/papi/v3/shared/_package_common.json.jbuilder:71-81`, `clients/_order.json.jbuilder:241-249`, `orders/_order.json.jbuilder:86-94`), PAPI v2 `reports/order_for_templates.json.jbuilder:22` (там опечатка `operator_agreeement_version`: шаблон либо не используется, либо падает) | name/inn/phone P; `operator_info` — статья оператора пакета по P, а не та, что в договоре |
+| `Order#price_info` (`order.rb:3198-3217`) → `OrderShowSerializer`, PAPI v3 `prebuild` | P |
+| `PartnerBonuses::AlfaMiles::Utils::ContentBuilder` (`app/services/partner_bonuses/alfa_miles/utils/content_builder.rb:99,148`) | P |
+| `OrderSerializer#show_dynamic_packages_label` (`app/serializers/order_serializer.rb:72`) | P = 113 |
+| `admin/orders/_summary_package.arb:15`, `admin/agreement_debug/_info.html.haml` | P, `detected_operator_organization`, `external_dynamic_agreement?` |
+| Легаси-чеки (`Payment#get_operator_organization`, `Uniteller::Receipt`, `OldReceipt`, `CertificateReceipt`, `Paylate::Receipt`, `CassbyApi`), `OrderExportSerializer`, `LineItemsV2::Creator` | P; вне скоупа |
 
-- `line_items_v2.supplier_id` фиксируется при создании позиции (`app/services/line_items_v2/advanced/creator.rb:8-10,66-83`):
-  - тур — `detected_operator_organization || order.operator_organization`, то есть B, иначе A;
-  - допуслуга — `OrderExtra#detect_organization`;
-  - лицензия — ЛТ;
-  - аванс старого флоу — АК или ЛТ, без агентского блока.
-- `FiscalProcessor::AgentSupplier` (`app/apis/fiscal_processor/agent_supplier.rb`) при отправке выбирает агента:
-  - **старый флоу:** владелец отеля, если `item_type == Order`, нет детализации до `HOTEL_OWNER_RECEIPTS_SINCE` (29.09.2026) и выполнено `hotel_owner_details?`. Иначе `line_item.supplier`;
-  - **новый флоу АК:** владелец из `receipts.info_data[:hotel_organization_id]`.
+В `lt-frontend` чтений `operator_organization` и `operator_info` из ответов заказа PAPI v3 не найдено (30.10), их читают легаси-чекаут WL и, возможно, мобильные приложения.
 
-  Наименование, ИНН и телефон всегда читаются из текущих записей при каждой отправке. НДС допуслуг берётся из `line_item.supplier.vat_on`, поэтому `supplier_id` должен оставаться ссылкой на OperatorOrganization.
-- **Новый флоу АК (LT-54329).** Включается для заказов АК, созданных начиная с `Receipts::AgentFlow::STARTS_AT` (14.10.2026 15:00 МСК), кроме субагентов и партнёров со `skip_fiscalization`.
-  - `Receipts::AgentFlow::Snapshot` хранит `orders.data[:agent_receipts_supplier] = {supplier_id: B || A, hotel_organization_id}`. Пишется при первом авансе под `Order.lock` и не пересчитывается. На 21.10 есть примерно у 1 900 заказов.
-  - Поставщик берётся в трёх разных моментах:
-    - снимок — для авансов, их возвратов и донора переноса;
-    - текущее B или A — для детализации и прихода переноса;
-    - активная детализация — для сторно и детального возврата.
-  - Ключ балансов — `(supplier_id, hotel_organization_id)`.
-- Детальные возвраты старого флоу берут поставщика из текущего пакета, а не из прихода.
+### Данные после выкатки LT-55181 (30.10.2026)
 
-### Оплаты оператору
+- Все 4 568 заказов 78 с 12.10 разложены по схеме автора без расхождений. На 127 — только OneTwoTrip (97): 240 заказов, у него нет юр лица. Без поставщика в матчинге с 12.10 — 21 отель, все за рубежом, на 124.
+- `kind` проставлен: после выкатки в чеках российских отелей Островка и Академа есть `hotel_organization_id`, у зарубежных нет.
+- **Детализированы до пересчёта и сменили юр лицо пакета:** 272 заказа нового флоу АК (266 на 89, 6 на 111) и 126 заказов старого флоу. Чек детализации на старом агенте, 1С и договор — на новом юр лице.
+- **Пойдут с переносом:** около 525 заказов АК, у которых агент авансов 89, а юр лицо пакета теперь другое.
+- Чеков с агентом 124 или 127 ещё не было.
+- `operators.kind` и `payment_operator_organization_id` в представлениях Replica не видны, проверять только косвенно.
 
-- `operator_payments.operator_organization_id` означает «кому заплатили»:
-  - если при создании поле не задано, `after_create` пишет A (`app/models/operator_payment.rb:92,397-401`);
-  - пустое значение при обновлении не принимается (`:94`);
-  - полисы (`OperatorPaymentsManager`) и автоплатежи динпакетов получают A;
-  - загрузчики реестров пишут своё юр лицо (102, 121, 119…);
-  - менеджер выбирает вручную из юр лиц `detected_operator` (`app/serializers/order_serializer.rb:317-319`);
-  - возвраты по реестру ищут оплату по этому юр лицу.
-- С 16.09 оплаты оператору есть примерно у 4 400 активных заказов Динамики. Примерно у 2 240 из них есть оплата не на A.
+### Дубли и ловушки
 
-### Выгрузка 1С и сверка
-
-- Шапка — `operator_organizations_agg` (`app/services/accounting/repo.rb:454-497` на `origin/develop`): `MAX(id)`, `MAX(inn)` и `MAX(name)` по оплатам оператору, кроме полисов, включая отменённые. Поэтому юр лица смешиваются: в заказе 371616557 id 121, а ИНН и название от ГорТревела. Заказ без оплаты оператору в выгрузку не попадает (`INNER JOIN`).
-- Оператор в шапке — сохранённый `operator_id`. У Динамики это «Level.Travel».
-- Детализация:
-  - строка «Заказ» — юр лицо шапки, а с хотфикса #27207 (21.10) — 113, если A = 113;
-  - допуслуги — юр лицо шаблона; 50/51 отдельной строкой не выводятся и входят в тур;
-  - полисы — всегда 49;
-  - Бенуар — 114 строкой в SQL.
-
-  Подмена 50/51 в `line_items_merged` — мёртвый код: `detalization_query` никто не вызывает.
-- Сверка: загрузчики Динамики ищут бронь в организациях Динамики `DYNAMICS_ORGANIZATION_IDS`, а заказ — через `Order.by_operator_booking_id(booking, 78, ORDER_SUPPLIER_IDS)` (`app/models/order.rb:251-259`), то есть по `packages.operator_organization_id IN (89, 113)`. У Бенуара только 89.
-
-### Живые примеры (прод)
-
-| Заказ | Что это | A | Договор | Чек (Order) | Оплата оператору |
-|---|---|---|---|---|---|
-| 370466621 (10.10), пакет 408854630 | отель Островка, старый флоу | 89 | статья 72 «Агентика» | аванс 97, детализация 24 | 102 |
-| 373279348 (21.10) | отель Островка, новый флоу | 89 | статья 72 | аванс 24, снимок `{supplier_id: 24}` | — |
-| 373275528 (21.10), пакет 409691362 | тур с отелем Островка | 113 | `…_78_operator_org_113` | 113 | 113 |
-
-Поисковый пакет-тур с Островком 409706803 ещё не актуализирован, и в его `misc_data` есть `operator_organization_id: '9'`. У заказанного пакета 409691362 этого ключа уже нет.
-
-
-### Факты для новой схемы (22.10.2026)
-
-- **Ветки новой схемы на октябрьских заказах Динамики** (неотменённые, по 22.10):
-
-  | Ветка | Заказов | Юр лицо пакета сейчас |
-  |---|---|---|
-  | тур → 113 | 1 165 | 718 на 113, 447 на 89 (организация Динамики 4) |
-  | отель, внешний ТО | 913 | 89 |
-  | отель в России, владелец есть | 893 | 89 |
-  | зарубежный отель → 124 | 449 | 89 |
-  | Россия или Абхазия без владельца | 23 | 89 |
-
-- **Отели продают не только через Динамику.** С 01.09 есть 61 отельный заказ других операторов: Russian Express (22) — 19, Алеан — 13, BG — 10, Интурист, FUN&SUN и другие.
-- **Владельцы отелей в реестре** (заказы Динамики, отели, с 01.09):
-  - Россия, поставщик не в матчинге: у 3 048 владелец с адресом или ОГРН есть, у 53 нет;
-  - **Абхазия** (`places.id = 29386`): владельцев в `hotel_organizations` нет ни у одного отеля. Заказов 168, из них 137 через внешних ТО.
-- **`is_split` при оплате зависит от юр лица пакета.**
-  - При capture в новой архитектуре платежей `Payment#correct_split_value` (`app/models/payment.rb:451,482-486`) ставит `payment.is_split = order.operator_organization.is_split`. Что от этого реально зависит, разобрано в Q24: лимит capture, модалка покупателя в legacy-чекауте, флаг в 1С. Магазин Uniteller и суммы лицензии в чеках от флага юр лица не зависят.
-  - Значения на проде: у 89 `is_split = 1`, у 113 и 124 — `0`.
-  - Платежи по заказам 78 с 15.10: на 89 — 1 293 split и 213 обычных, на 113 — 349 и 330.
-  - Отдельно `PaymentBuilder#operator_organization` (`app/services/payment_builder.rb:124-131`) — ещё один резолвер: юр лицо по стране, иначе основное. Через него ставится `data[:split_agreement]`.
-- **124 «TOO Alfi S»** на 22.10: неактивно, ИНН `000000000000`, без стран и городов, статьи `agreement_operator_info_78_operator_org_124` нет.
-- **Какой ключ поставщика есть на каждом этапе.** При поиске отеля в `misc_data` есть только `supplier_id`, после актуализации — `supplier_id` и `acm_supplier_id`. У туров есть только `acm_supplier_id`. Оба ключа переживают актуализацию.
+- Одна компания под несколькими id: «Агентика» 24 (72), 102 и 116 (78); «ГорТревел» 89 (78) и 86 (95); копии реестровых поставщиков 128–133 и их оригиналы под 78.
+- `detected_operator` продублирован в `Package` и `OrderDecorator`.
+- `Order#hotel?` читает `orders.search_type`, а `external_dynamic_agreement?` — `search_type` пакета. У ручного пакета они могут расходиться.
 
 ## Scenarios
 
-1. **Тур Динамики.** Оператор договора 78, принципал и системное юр лицо 113. Так же, если Динамика забронировала тур в своей организации 4: так было у 447 туров в октябре, решение автора.
-2. **Тур другого оператора** (Pegast напрямую). Принципал и системное юр лицо — юр лицо Pegast по гео, иначе основное. Правило `external_id` (`misc_data[:operator_organization_id]`) больше не используется.
-3. **Отель Динамики в России или Абхазии, владелец найден** (условия договора: флаг, заказ не раньше 14.09, адрес или ОГРН):
-   - договор и агентский блок чека — владелец (HotelOrganization). Так требует закон: указывается тот, кто оказывает услугу;
-   - 1С — поставщик для 1С, кому мы заплатили: юр лицо ТО из матчинга по `supplier_id` (гео, затем основное). Если поставщика в матчинге нет — «Внешний поставщик»;
-   - справка о стоимости и PAPI v3 — владелец;
-   - системное юр лицо — «Внешний поставщик»;
-   - в октябре 1 208 заказов: 280 с поставщиком из матчинга (например, Островок в Сочи; сейчас у них договор и чек на «Агентике»), 928 без него (например, Отелло, поставщик 27).
-4. **Отель Динамики с поставщиком в матчинге** (Островок в Турции, `supplier_id = 2`):
-   - оператор договора 72, договор по статье 72;
-   - принципал и поставщик для 1С — 24 «Агентика»;
-   - системное юр лицо «Внешний поставщик»: по нему сверка находит заказ.
-   - В октябре 656 заказов.
-5. **Отель Динамики в России без владельца или в Абхазии** (владельцев абхазских отелей в реестре нет). Поставщика нет в матчинге. Принципал, поставщик для 1С и системное юр лицо — «Внешний поставщик». Договор по статье `…_78_operator_org_<ВП>`, в чеке реквизиты-заглушки. В октябре 24 заказа.
-6. **Тот же отель, но поставщик в матчинге** → сценарий 4, внешний ТО.
-7. **Зарубежный отель Динамики, поставщика нет в матчинге** (например, Бенуар 41):
-   - оператор договора 78, договор по статье `…_78_operator_org_124`;
-   - принципал, поставщик для 1С и системное юр лицо — 124;
-   - сверка находит заказ по 124: брони остаются в организациях Динамики 8, 4 и 6.
-   - В октябре 474 заказа.
-8. **Отель другого оператора** (Алеан напрямую). Как сценарий 2: юр лицо оператора по гео, иначе основное. Ни владельца, ни 124.
-9. **Сертификат.** Принципал и системное юр лицо — ЛТ, как сейчас.
-10. **Заказ на служебном ТО** (LT-54786). Его фиктивное юр лицо по фолбэку, чеков нет, как сейчас.
-11. **Менеджер меняет вылет, «Замена пакета», кнопка.** Резолвер пересчитывает решение по входам пакета. Совпало — в лог «без изменений». Не совпало — новая версия и лог «было → стало».
-12. **Матчинг пополнили после создания заказа.** Снимки существующих заказов не меняются. Новые записи действуют на новые заказы и явные пересчёты.
-13. **Новый флоу чеков АК.** Агент первого аванса берётся из снимка и закрепляется. Если после этого снимок сменился, детализация делает перенос, как сейчас.
-14. **Старый флоу чеков** (заказы до 14.10, ЛТ/ЛП, субагенты). `AgentSupplier` работает как сейчас, снимок не читает.
+Ветки 1–10 — схема автора LT-55181 с правкой 151496a8b (владелец при 127). Колонки: юр лицо пакета (1С) / чек / договор.
+
+1. **Тур Динамики** (78, поиск «тур») → 113 / 113 / статья `…_78_operator_org_113`. Если 113 неактивно — `external_id`, гео, фолбэк.
+2. **Отель Динамики, поставщик в матчинге — туроператор** (`kind: operator`), любая страна → юр лицо ТО (гео, иначе основное) / оно же / статья ТО. Владельца нет даже в России.
+3. **Отель Динамики, поставщик с юр лицом оплаты (Алибаба), отель не в России, Абхазии, Беларуси** → 124 / 124 / статья `…_78_operator_org_124`.
+4. **Отель Динамики в России, поставщик (`kind: supplier`) с юр лицом** → юр лицо поставщика / владелец отеля, иначе юр лицо поставщика / владелец, иначе статья поставщика.
+5. **Отель Динамики в Абхазии или Беларуси, поставщик с юр лицом** → юр лицо поставщика / оно же / статья поставщика.
+6. **Зарубежный отель Динамики, поставщик без юр лица оплаты** (Отелло, Академ, Островок) → юр лицо поставщика / оно же / статья поставщика.
+7. **Поставщик в матчинге, у его оператора нет подходящего юр лица** (OneTwoTrip) → 127 / в России и Абхазии владелец, иначе 127 / владелец, иначе статья поставщика, а без неё пустой раздел.
+8. **Поставщика нет в матчинге, отель за рубежом (включая Беларусь)** → 124 / 124 / статья `…_78_operator_org_124`.
+9. **Поставщика нет в матчинге, Россия или Абхазия** → 127 / владелец, иначе 127 / владелец, иначе статья `…_78_operator_org_127`.
+10. **Заказ до 12.10** (89 и старые матчинги) → решение на лету тем же резолвером от сохранённого юр лица пакета, как сейчас: 1С по оплатам оператору; чек и договор — юр лицо поставщика, если он был в матчинге до 12.10, иначе как раньше.
+11. **Тур или отель другого оператора** (Pegast, Алеан напрямую), **Versal** — `external_id`, гео, фолбэк, как сейчас. У отеля Versal с поставщиком из матчинга договор и чек поставщика, как сейчас.
+12. **Сертификат** → ЛТ. **Служебный ТО** (LT-54786) — его фиктивное юр лицо по фолбэку.
+13. **Создание заказа.** Снимок v1 (`order_created`) из юр лица пакета после пересчёта ручного пакета. Совпадает с тем, что сейчас считается на лету.
+14. **Бэкфил.** Заказам с 12.10 без снимка — v1 (`backfill`) из текущего состояния: ни один документ не меняется.
+15. **Смена вылета или оператора у пакета заказа, смена типа поиска ручного заказа, «Замена пакета», массовый пересчёт.** Резолвер считает решение заново. Совпало — ничего. Не совпало — новая версия, колонка пакета, версия договора, лог «было → стало» с правилом и причиной.
+16. **То же у детализированного заказа.** Пересчёт пропускается, в лог «Поставщик не пересчитан: заказ детализирован». Колонка пакета остаётся равной снимку, в том числе у нового пакета при замене.
+17. **Кнопка в админке.** Пересчёт по текущим правилам с причиной `manual`. У детализированного заказа — с подтверждением; чеки кнопка не трогает, детализацию переделывают «Инструментами чеков».
+18. **Правят матчинг, тип оператора, юр лицо оплаты, гео или активность юр лиц, появляется владелец.** Заказы со снимком не меняются. Заказы до 12.10 по-прежнему считаются на лету (матчинги после 12.10 им не видны, тип и юр лицо оплаты — видны, как сейчас).
+19. **Новый флоу АК.** Первый аванс закрепляет агента из текущей версии снимка: (юр лицо поставщика, владелец). Если снимок потом сменился, детализация переносит авансы на нового агента, как сейчас.
+20. **Старый флоу чеков.** Агент тура — юр лицо поставщика из решения, владелец — из решения, отсечка 29.09 остаётся.
+21. **PAPI v3, справка о стоимости, `price_info`, Альфа-Мили** показывают принципала. `operator_info` в PAPI v3 совпадает с разделом о поставщике в договоре.
 
 ## Implementation decisions
 
 ### Резолвер
 
-Резолвер без побочных эффектов: на входе пакет (и заказ, если он уже есть), на выходе решение и правило. Правила по порядку:
+Сервис `OrderSuppliers::Resolver`, без побочных эффектов. Две операции:
+- **выбор юр лица пакета** — по входам пакета (и заказа, если он есть) возвращает OperatorOrganization и правило. Это ветки Динамики из `ForPackageQuery` (113, юр лицо оплаты, юр лицо оператора поставщика, 124, 127, фолбэк), плюс сертификат и общая цепочка `external_id` → гео → фолбэк;
+- **вывод решения** — по пакету, заказу и заданному юр лицу пакета P возвращает решение целиком (поля ниже). Это признаки договора и владельца из `Package` и `OrderDecorator`, перенесённые без изменения логики.
 
-0. **Сертификат** (`hotel_id == CERTIFICATE_HOTEL_ID`) → ЛТ. Существующее правило, в схеме автора его нет.
-1. **Тур** (`pb_tour.search_type != HOTEL`; у пакетов без `pb_tour` тип считается `PACKAGE`):
-   - оператор Динамики (`Operator#is_dynamic?`, 78 и 104 — Versal тоже Динамика, Q23) → оператор договора 78, принципал 113;
-   - другой оператор → его юр лицо: гео (вылет и страна), иначе основное активное.
-2. **Отель другого оператора** (не Динамика) → как тур другого оператора.
-3. **Отель Динамики в России или Абхазии, владелец найден** по правилу договора:
-   - флаг `Settings.hotel_owner_details_in_agreement?`;
-   - дата заказа (до заказа — дата создания пакета) не раньше 14.09.2026;
-   - владелец `active_at(дата)`, у него есть адрес или ОГРН.
+Полный расчёт (создание, пересчёт) = выбор юр лица пакета, затем вывод решения от него. Расчёт на лету для заказа без снимка = вывод решения от сохранённого юр лица пакета: так заказы до 12.10 на 89 получают ровно то, что получают сейчас.
 
-   Результат: оператор договора 78, принципал — HotelOrganization. Поставщик для 1С — юр лицо ТО из матчинга (гео, затем основное), если поставщик пакета есть в матчинге, иначе «Внешний поставщик».
-4. **Отель Динамики, поставщик (`supplier_id || acm_supplier_id`) есть в `external_dynamic_matchings` с `active = true`** → оператор договора — ТО из матчинга. Принципал и поставщик для 1С — его юр лицо: гео, затем основное. Константу `EXTERNAL_DYNAMIC_IDS` больше не читаем.
-5. **Отель Динамики в России или Абхазии** (владельца нет или условие не выполнено) → «Внешний поставщик» (Q21).
-6. **Остальные отели Динамики** → 124. Гео не используется (ответ автора: все зарубежные отели на 124). Id юр лица 124 хранится в одном месте. Константа или настройка в админке — решаем при реализации.
+Подбор юр лица конкретного оператора по гео и фолбэку остаётся запросом `ForPackageQuery` (`geo_call`). Ветки Динамики из `ForPackageQuery#call` переезжают в резолвер. Методы `Package` и `OrderDecorator` (`detect_operator_organization`, `external_dynamic_agreement?`, `detected_operator`, `detected_operator_organization`, `hotel_owner_details?`, `hotel_owner_organization` и остальные из «Признаки договора и владельца») становятся тонкими делегатами в точку чтения, чтобы не трогать всех вызывающих. Дубль `detected_operator` убирается.
 
-Фильтр `search_types` и список организаций Динамики у юр лица в резолвер больше не входят. Ответ Динамики (`misc_data[:operator_organization_id]`) не используется.
+Константы правил (`DYNAMIC_SUPPLIER_RULES_SINCE`, `SUPPLIER_DIRECT_PAYMENT_COUNTRY_IDS`, `RUBLE_HOTEL_COUNTRY_IDS`, `HOTEL_OWNER_DETAILS_SINCE`, id 113/124/127) читаются только резолвером.
+
+### Решение
+
+Значение `OrderSuppliers::Decision`:
+- `operator_organization` — юр лицо пакета (OperatorOrganization): кому платим. Его читают 1С, сверка, оплаты оператору, `is_split`, имя статьи `_operator_org_`;
+- `supplier_organization` — юр лицо поставщика в документах (OperatorOrganization): агент тура в чеке, реквизиты, когда нет владельца. Это `detected_operator_organization || operator_organization`. У заказов по новым правилам совпадает с юр лицом пакета, у заказов до 12.10 на 89 — нет;
+- `hotel_organization` — владелец отеля (HotelOrganization) или `nil`;
+- `contract_operator` — оператор договора (`detected_operator`);
+- `agreement_source` — `supplier` (статья `agreement_operator_info_<оператор договора>` по дате заказа) или `operator` (`OperatorAgreementManager` с юр лицом пакета и версией из пакета);
+- `rule` и `trace`.
+
+Принципал — `hotel_organization || supplier_organization`.
+
+`trace`: тип поиска, `supplier_id`/`acm_supplier_id`, запись матчинга (id, оператор, `created_at`) и была ли применена граница 12.10, `kind` и юр лицо оплаты оператора поставщика, страна, вылет, сработавший уровень гео, владелец и его `active_from`, значение флага Settings.
 
 ### Снимок `order_supplier_snapshots`
 
-Поля решения:
-- `contract_operator_id` — оператор договора;
-- `organization_type` + `organization_id` — принципал (договор, чек, справка, PAPI): OperatorOrganization или HotelOrganization;
-- `accounting_organization_id` — поставщик для 1С (OperatorOrganization): кому заплатили. Совпадает с принципалом во всех ветках, кроме ветки 3 (владелец);
-- `operator_organization_id` — системное юр лицо (OperatorOrganization). Нужно там, где по схеме данных возможна только OperatorOrganization:
-  - `packages.operator_organization_id`, а через него `is_split` и сверка;
-  - имя статьи договора Динамики (`…_78_operator_org_<id>`);
-  - при владельце отеля ещё и `line_items_v2.supplier_id` (НДС допуслуг, правило «ЛТ или АК — без агентского блока») и значение по умолчанию в оплатах оператору. Владельца туда записать нельзя: оба поля ссылаются на `operator_organizations`.
+- Поля решения: `operator_organization_id`, `supplier_organization_id`, `hotel_organization_id`, `contract_operator_id`, `agreement_source`, `rule`, `trace` (JSON).
+- Служебные: `order_id`, `version`, `current`, `reason` (`order_created`, `backfill`, `package_changed`, `search_type_changed`, `package_replaced`, `rules_changed`, `manual`), `created_by_id`, `created_at`. Уникальность `(order_id, version)`, одна текущая версия на заказ.
+- Реквизиты — ссылками, а не копиями: правка ИНН в админке доходит до неотправленных чеков, ключ балансов АК — пара id.
+- Инвариант: `packages.operator_organization_id` пакета заказа равен `operator_organization_id` текущей версии. Его пишет только сервис снимка.
+- Флаг Settings и условия владельца проверяются в момент расчёта и замораживаются в версии.
+- Пакеты без заказа снимка не имеют, их юр лицо выбирает резолвер при создании пакета, как сейчас.
 
-  Если принципал — OperatorOrganization (в том числе юр лицо внешнего ТО), `line_items_v2.supplier_id` и значение по умолчанию в оплатах — это принципал (решение 23.10). У отеля Островка в позиции чека и в оплате по умолчанию будет 24 «Агентика», а в пакете — «Внешний поставщик».
+### Точка чтения
 
-  Когда принципал — OperatorOrganization оператора пакета, системное юр лицо с ним совпадает. Для владельца отеля (ветка 3) и внешнего ТО (ветка 4) это «Внешний поставщик» (Q22). При владельце отеля поля, ссылающиеся на `operator_organizations` (позиция чека, оплата по умолчанию), заполняются поставщиком для 1С, а не системным (решение Q26).
-
-Служебные поля:
-- `rule` и `trace`: тип поиска, `supplier_id`/`acm_supplier_id`, запись матчинга (её id и оператор — таблица будет пополняться), отель, страна, вылет, выбранный владелец и его `active_from`, сработавший уровень гео, значение флага Settings;
-- `version`, `current`, `reason` (`order_created`, `package_changed`, `package_replaced`, `manual`, `backfill`), `created_by_id`.
-
-Реквизиты храним ссылками, а не копиями: ключ балансов нового флоу АК — пара id, а правка ИНН в админке должна доходить до неотправленных чеков.
+`OrderSuppliers.current(order)` возвращает решение: текущую версию снимка, а без неё — вывод решения на лету от сохранённого юр лица пакета. Результат кешируется на экземпляре заказа. Потребители не ветвятся по наличию снимка.
 
 ### Когда считаем и пересчитываем
 
-- **Создание пакета.** `packages.operator_organization_id` получает системное юр лицо по резолверу, как сейчас в `after_create`. У отелей при поиске поставщик лежит в `supplier_id`.
-- **Создание заказа.** Снимок v1 считается резолвером. Все входы переживают актуализацию, поэтому копировать решение пакета больше не нужно (прежнее решение Q3 устарело).
-- **Пересчёт только явный:** смена вылета у пакета заказа, «Замена пакета», кнопка в админке заказа под новой ролью. `before_save`-пересчёт у пакетов с заказом убираем. Лог — `order_logs` с отдельным `action_code`.
-- **После оплаты** пересчёт разрешён (ответ автора). Новый флоу АК держит авансы на агенте первого аванса, детализация делает перенос.
-- **Старые заказы живут по старой логике** (решение 23.10, Q30):
-  - новая логика включается флагом в `orders.data` при создании заказа, как флаг нового флоу чеков АК;
-  - заказам до релиза снимок не создаём и не дозаполняем;
-  - каждый потребитель проверяет: есть снимок — читает его, нет — работает как сейчас (`detected_*`, `ForPackageQuery`, `AgentSupplier`, текущий SQL 1С);
-  - пересчёт старого заказа (смена вылета, замена пакета) идёт по старому `before_save`;
-  - старый код удаляем, когда закроются заказы до релиза.
+- **Создание заказа** — после `set_operator_organization` и пересчёта ручного пакета пишется v1 `order_created` из вывода решения от юр лица пакета.
+- **Пересчёт** — сервис `OrderSuppliers::Recalculation`: полный расчёт резолвером; если решение совпало — ничего; иначе новая версия, колонка пакета, `operator_agreement_version`, лог. Его вызывают:
+  - смена `operator_id` или `departure_id` пакета с заказом (`package_changed`) — вместо `before_save :update_operator_organization` для таких пакетов;
+  - смена типа поиска ручного заказа (`search_type_changed`) и «Замена пакета» (`package_replaced`) — вместо `refresh_manual_operator_organization`;
+  - массовый пересчёт после смены правил (`rules_changed`) — rake на сервисе вместо `recalculate_organizations`;
+  - кнопка (`manual`).
+- **После детализации** (у заказа есть позиции `line_items_v2` с `line_item_type = detailed`) автоматические пересчёты пропускаются и пишут об этом в лог. При «Замене пакета» колонка нового пакета получает юр лицо пакета из снимка. Кнопка пересчитывает с подтверждением.
+- **После оплаты** пересчёт разрешён: новый флоу АК держит авансы на агенте первого аванса и переносит их при детализации.
+- **Бэкфил** — rake: заказам с `created_at >= DYNAMIC_SUPPLIER_RULES_SINCE` без снимка пишется v1 `backfill` выводом решения от сохранённого юр лица пакета. Пакеты не меняются. Идемпотентен, батчами.
+- **Лог** — `order_logs` с отдельным `action_code`: «Поставщик: было → стало» (юр лицо пакета, поставщик, владелец, оператор договора, правило, причина) и «Поставщик не пересчитан: заказ детализирован».
 
 ### Потребители
 
-- **Договор.** Поиск статьи не меняем. В `OperatorAgreementManager` передаём оператора договора и системное юр лицо.
-  - Для 124 нужна статья `agreement_operator_info_78_operator_org_124` в CMS.
-  - Владелец идёт блоком владельца, как сейчас (`hotel_owner_details`), но по снимку, а не по условиям на лету.
-- **Чеки, новый флоу АК.** Агент первого аванса — из снимка:
-  - принципал OperatorOrganization → пара `(id, nil)`;
-  - владелец → `(системное юр лицо, HotelOrganization id)`.
-
-  Детализация берёт текущую версию снимка. Сторно и детальный возврат — из активной детализации, как сейчас.
-- **Чеки, старый флоу.** Без изменений, `AgentSupplier`.
-- **Оплаты оператору.** Поле остаётся «кому заплатили». Значение по умолчанию — принципал, если он OperatorOrganization. При владельце отеля — системное юр лицо («Внешний поставщик»).
-- **Шапка 1С** — поставщик для 1С из снимка (`accounting_organization_id`, всегда OperatorOrganization). Владелец отеля в 1С не попадает (ответ автора 23.10): мы платим поставщику, а не владельцу. Alfi S и «Внешний поставщик» становятся контрагентами 1С.
-  - **Временный фолбэк** (решение пользователя 23.10, Q31): если поставщик для 1С — «Внешний поставщик», шапка и строка тура берутся по-старому, из оплат оператору (`operator_organizations_agg`). Так у отелей с владельцем, чей поставщик ещё не в матчинге, в 1С остаётся реальная компания из реестра (Отелло, Академ…) или 89, а не заглушка. Фолбэк убираем, когда матчинг пополнят (Q27).
-- **Справка о стоимости и PAPI v3 `operator_info`** — принципал из снимка, включая владельца. Документация PAPI v3 обновляется в том же PR.
-- **Сверка.** Заказ ищется по системному юр лицу. В `ORDER_SUPPLIER_IDS` загрузчиков Динамики добавляется 124: брони Alfi S в отдельной организации Динамики, по словам автора, скорее всего не появятся. Бенуару тоже нужны 113 и 124.
-
-### Читатели юр лица пакета: системное или принципал
-
-Инвентаризация 23.10.2026. Читатели `packages.operator_organization_id`, `package.operator_organization` и `order.operator_organization`; «П/О» означает принципал, если он OperatorOrganization, иначе системное. Разбивку пользователь утвердил 23.10. Системными остаются сверка, статья договора, шаблоны писем о трансфере, заявки ТО и легаси `is_split`, на принципала их не переводим. Всё, что видит клиент или бухгалтерия, переводится на принципала.
-
-| Место | Зачем | Решение |
-|---|---|---|
-| `Order.by_operator_booking_id` (`order.rb:251`) ← `Accounting::DynamicsEnricher:71`, `OperatorOperations::ManualClearMethods:32`, `Applications::BaseRegisterSyncer:74`; `Accounting::Benoir::Enricher#matched_order:22-25` | сверка: найти заказ по оператору пакета и юр лицу | **системное**: ищется в паре с `packages.operator_id`, юр лицо чужого оператора не подходит |
-| `OrderDecorator#operator_agreement_manager:511`, `Order#log_operator_organization:4687`, `Package#assign_operator_agreement_version:1118`, версия статьи в PAPI (`clients/_order:247`, `shared/_package_common:78`, `orders/_order:92`, PAPI v2 `order_for_templates:22`) | имя и версия статьи договора | **системное**, как сейчас: суффикс есть только у Динамики, где системное = принципал |
-| `Admin::TransferMailGenerator#find_transfer_template:200-204` | шаблон письма о трансфере по юр лицу оператора | **системное**: шаблоны привязаны к юр лицам оператора пакета |
-| `Order#update_operator_application:4711-4716` | заявка ТО (BG, FUN&SUN, Anex) | **системное** (там оно = принципал) |
-| `Payment#correct_split_value:483-485`, `PaymentBuilder#is_split?:118`, `Package#show_modal_customer:1341`, `OrdersController:120`, `OrderCreation:451`, `Order::UrlHelpers:71`, `orders/show.html.haml:249` | легаси `is_split` / `split_agreement` | **системное**, у ВП и 124 `is_split = 1` как у 89 |
-| `OrderSerializer#show_dynamic_packages_label:72` | бейдж «Динамические пакеты» | вне скоупа (системное = принципал = 113) |
-| `LineItemsV2::Advanced::Creator.tour_supplier_id:9`, `PossibleItemsBuilder:115`, `OrderExtra#detect_organization:198` (split-допуслуги) | `line_items_v2.supplier_id` | **П/О** |
-| `OperatorPayment#set_operator_organization_id:398`, `OperatorPaymentsManager:16` (полисы), `AutoDynamicPayments::BaseSyncer:268`, `PaymentStatusMatchBuilder:439` | юр лицо оплаты оператору по умолчанию | **П/О** |
-| `Query::Payments::RefundStatementsQuery:97-102` | поставщик в заявлении на возврат, если нет оплаты оператору и заявки | **П/О** |
-| `Accounting::Repo` (хотфикс #27207: `repo.rb:101-107`; `selected_order_ids`: `repo.rb:237`, `confirmed_at_exportable.rb:12`, `tour_end_exportable.rb:12`) | поставщик тура в 1С | **поставщик для 1С** из снимка (`accounting_organization_id`). Хотфикс со 113 удаляется |
-| PAPI v3 `operator_organization` (`clients/_order:241-246`, `shared/_package_common:71-76`, `orders/_order:86-91`), `Order#price_info:3200,3206` (`OrderShowSerializer`) | реквизиты поставщика клиенту | **принципал**, включая владельца (у HotelOrganization телефон в `phone_number`) |
-| `PartnerBonuses::AlfaMiles::Utils::ContentBuilder:99,149` | провайдер тура в Alfa Miles | **принципал** |
-| `admin/orders/_summary_package.arb:15-16`, `admin/agreement_debug/_info.html.haml:4,36` | показ в админке | показывать **оба**: системное и принципала |
-| `Payment#get_operator_organization` / `#set_operator_organization` (`payment.rb:1015-1025`), `Uniteller::Receipt`, `OldReceipt`, `CertificateReceipt`, `Paylate::Receipt`, `CassbyApi` | легаси-чеки | вне скоупа (решение пользователя) |
-| `OperatorPayment#create_register_objects:288`, `OrderExportSerializer`, `Accounting::Repo#line_items_merged:366` | выгрузки ЛТ/ЛП, старая 1С | мёртвый код, не трогаем |
-
-### Данные и админка
-
-- **`external_dynamic_matchings.active`**; таблица будет пополняться.
-- **Юр лицо 124:**
-  - сделать активным;
-  - завести реальные реквизиты: сейчас ИНН `000000000000`;
-  - выставить `is_split = 1`, как у 89 (Q24);
-  - ИНН берём как есть в данных (сейчас `000000000000`). Риск: ОФД или Uniteller могут отклонить чек с таким ИНН, проверить на первом чеке.
-- **Новое юр лицо «Внешний поставщик»** (Q21, Q22): оператор 78, активное, не основное, без стран и городов. Резолвер выбирает его явно, гео и фолбэк — нет. Реквизиты — заглушки до данных от бизнеса. Нужны `is_split = 1`, как у 89 (Q24), и статья договора `…_78_operator_org_<id>` для ветки «нет владельца».
-  - завести статью договора.
-- **Флаг Settings** владельца остаётся.
+- **Договор** (`OrderDecorator`): блок владельца, если в решении есть владелец; иначе статья по `contract_operator` и `agreement_source`. Поиск статьи по дате и `OperatorAgreementManager` не меняются.
+- **Чеки нового флоу АК**: `AgentFlow.tour_agent` = `Agent(supplier_organization.id, hotel_organization&.id)` из точки чтения. Снимок агента первого аванса остаётся как есть.
+- **Чеки старого флоу**: `Creator.tour_supplier_id` — `supplier_organization`; `AgentSupplier` — владелец из решения, отсечка 29.09 остаётся.
+- **1С, сверка, оплаты оператору, `is_split`, письма о трансфере, заявки ТО, заявление на возврат, бейдж 113** — продолжают читать `packages.operator_organization_id`. Изменений в SQL 1С и в загрузчиках нет.
+- **PAPI v3 `operator_organization`** (три шаблона) — name/inn/phone принципала (у HotelOrganization телефон в `phone_number`), `operator_info` — тот же текст, что раздел о поставщике в договоре. PAPI v2 `order_for_templates` — тот же текст. Документация PAPI v3 обновляется в том же PR.
+- **Справка о стоимости, `Order#price_info`, Альфа-Мили** — принципал.
+- **Админка заказа**: блок «Поставщик» — текущая версия (юр лицо пакета, поставщик, владелец, оператор договора, источник статьи, правило, причина, автор) и история версий; кнопка «Пересчитать поставщика» под новой ролью. `agreement_debug` читает точку чтения.
 
 ### Порядок работ
 
-1. Данные: `external_dynamic_matchings.active`, настройка 124.
-2. Резолвер по новой схеме. `detected_*` и `ForPackageQuery` делегируют в него.
-3. Снимок в теневом режиме.
-4. Явный пересчёт: вылет, замена пакета, кнопка.
-5. Потребители: договор, чеки нового флоу, оплаты по умолчанию, 1С, сверка (124 в загрузчиках), справка, PAPI v3.
-6. Удаление констант: `EXTERNAL_DYNAMIC_IDS`, `DYNAMIC_PACKAGES_ID`, хотфикс 1С со 113.
+1. Резолвер и решение: перенос правил из `ForPackageQuery`, `Package`, `OrderDecorator`; методы становятся делегатами. Поведение не меняется, спеки автора зелёные.
+2. Точка чтения на лету; договор и чеки читают её.
+3. Таблица снимка, v1 при создании заказа, сервис пересчёта с пропуском после детализации, лог; перевод триггеров на сервис.
+4. Бэкфил с 12.10.
+5. Админка: блок, история, кнопка, роль.
+6. Потребители с изменением поведения: PAPI v3 и его документация, справка, `price_info`, Альфа-Мили.
+7. Удаление `recalculate_organizations` и прямых вызовов `refresh_operator_organization`.
 
 ## Testing decisions
 
-Тесты проверяют внешнее поведение, то есть что попадает в документ.
+Тесты проверяют внешнее поведение — что попадает в документ, — а не устройство резолвера.
 
-**Табличный спек резолвера** — главная точка. Строки — сценарии 1–10:
-- тур Динамики;
-- тур другого оператора;
-- отель Островка;
-- отель в России с владельцем;
-- отель в России без владельца;
-- Абхазия;
-- зарубежный отель;
-- отель другого оператора;
-- сертификат;
-- служебный ТО.
+**Табличный спек резолвера** — главная точка. Строки — сценарии 1–12: юр лицо пакета, юр лицо поставщика, владелец, оператор договора, источник статьи, правило. Отдельно:
+- граница 12.10: заказ до неё не видит матчинг, заведённый после;
+- ключ поставщика `supplier_id` при поиске и `acm_supplier_id` после актуализации;
+- ручной пакет берёт тип поиска из заказа;
+- вывод решения от заданного юр лица (89 у старого заказа) совпадает с текущими признаками.
 
-Отдельно проверить ключ поставщика: `supplier_id` при поиске и `acm_supplier_id` после актуализации. Образец — `spec/queries/operator_organizations/for_package_query_spec.rb`.
+Образцы: `spec/queries/operator_organizations/for_package_query_spec.rb`, контексты `#operator_info` в `spec/decorators/order_decorator_spec.rb` (там уже описаны ветки 2, 4, 5, 7 и Абхазия).
 
-**Документы на одних и тех же заказах** — тур 113, отель Островка, отель с владельцем, зарубежный отель на 124. Используем существующие спеки потребителей:
-- агентский блок: `spec/apis/fiscal_processor/agent_supplier_spec.rb`, `spec/apis/fiscal_processor/uniteller_spec.rb`, `spec/services/receipts/agent_flow_spec.rb`, `spec/services/receipts/agent_flow/detailing_spec.rb`;
-- договор: `spec/decorators/order_decorator_spec.rb` (`operator_info`);
-- 1С: `spec/services/accounting/repo/tour_end_exportable_spec.rb`, `spec/services/accounting/repo_dynamic_packages_supplier_spec.rb`;
-- сверка: `spec/services/accounting/ostrovok/enricher_spec.rb`, `spec/services/accounting/benoir/*` — заказ на 124 находится;
-- справка: `spec/services/statement_templates/order_price_content_renderer_spec.rb`;
-- PAPI v3: `spec/requests/papi/v3/flows/checkout_flow_spec.rb` или request-спек заказа;
-- оплата: `is_split` после capture берётся у системного юр лица.
+**Снимок и пересчёт**: v1 при создании заказа; новая версия и лог при смене вылета, типа поиска, замене пакета, кнопке; «без изменений» не создаёт версию; пропуск после детализации; инвариант колонки пакета; бэкфил не меняет ни одного решения.
 
-**Пересчёт:** смена вылета и «Замена пакета» дают новую версию или «без изменений» и запись в лог.
+**Регрессия потребителей** поверх снимка — существующие спеки:
+- договор: `spec/decorators/order_decorator_spec.rb`, `order_decorator_v2_spec.rb`;
+- чеки: `spec/apis/fiscal_processor/agent_supplier_spec.rb`, `spec/services/receipts/agent_flow/*` (детализация с переносом при смене агента), `spec/services/receipts/agent_flow_spec.rb`;
+- выбор юр лица и rake: `spec/queries/operator_organizations/for_package_query_spec.rb`, `spec/models/package_spec.rb`, `spec/models/order_spec.rb`, `spec/lib/tasks/external_dynamic_matchings_spec.rb`, `spec/models/external_dynamic_matching_spec.rb`;
+- 1С и сверка: `spec/services/accounting/*`;
+- справка: `spec/services/statement_templates/order_price_content_renderer_spec.rb`.
 
 ## Out of scope
 
-- Блоки задачи «Позиции чека (старые)» (`LineItemsV2::Creator`) и «Старый Uniteller-чек» (`Uniteller::Receipt`, `Payment#get_operator_organization`, `payments.operator_organization_id`) — по решению пользователя.
-- Расчёт сумм в 1С, НДС, тексты статей договора (кроме новой статьи для 124 — это задача контента).
-- Выбор юр лица для допуслуг (`OrderExtra#detect_organization`, шаблоны).
-- Удаление колонки `packages.operator_organization_id`.
-- Объединение дублей юр лиц (24/102/116 «Агентика», 89/86 «ГорТревел»).
-- Бейдж «Динамические пакеты» в менеджерке.
-- Мёртвый код 1С (`detalization_query`, `line_items_merged`, `RepoOld`).
-- Роли юр лиц (`role`, `with_role`, `suppliers_of`), замена 49/50/51 в SQL 1С, поиск `lt`/`lp`/`ak`/`renins` по названию.
-- Организация Динамики как вход резолвера, `search_types`, список организаций Динамики у юр лица. Отменены новой схемой.
-- Загрузчики и организации Динамики 04 и 06 (Q17, Q18). Это вопрос сверки, а не выбора поставщика.
+- Данные LT-55181 — задачи автора: 400 детализированных заказов с расхождением, статьи 93 и 127, юр лица OneTwoTrip и других, `is_split` у 124 и 127, содержимое сгенерированных статей.
+- SQL 1С, загрузчики реестров и сверка: читают колонку пакета, она остаётся.
+- Значение по умолчанию в оплатах оператору: остаётся юр лицо пакета.
+- Легаси-чеки (`Payment#get_operator_organization`, `Uniteller::Receipt` и др.), `LineItemsV2::Creator`, `OrderExportSerializer`.
+- Изменение правил выбора: резолвер переносит правила автора как есть. Versal как полноценная Динамика (Q23) — только если автор поменяет правила.
+- Флаг `active` у матчинга: границу задаёт `created_at`, а заказы со снимком от матчинга не зависят.
+- Объединение дублей юр лиц, удаление колонки `packages.operator_organization_id`, выбор юр лица допуслуг, роли юр лиц.
 
 ## Further notes
 
-### Новая схема: ответы 22.10.2026, вечер
+### Решения 30.10.2026
 
-- Схема автора — `organization_detection.png` (у пользователя, `~/Downloads`).
-- **Зарубежные отели Динамики** без матчинга — все на 124, без гео.
-- **Юр лицо пакета зарубежного отеля** — 124. Отдельной организации Динамики для броней Alfi S, скорее всего, не будет.
-- **Условия владельца** (адрес или ОГРН, флаг, отсечка 14.09) остаются — мнение пользователя.
-- **1С:** владелец и Alfi S как контрагенты согласованы.
-- **Справка о стоимости и PAPI v3** показывают принципала, включая владельца. Это отменяет прежнее Q11 «владельца не показываем».
-- **Туры Динамики** всегда на 113, даже если бронь в организации 4.
+- Правила переезжают в резолвер; `ForPackageQuery` остаётся подбором юр лица оператора по гео; методы `Package` и `OrderDecorator` — делегаты.
+- Снимок — бэкфил всем заказам с 12.10; до 12.10 — на лету.
+- После детализации автоматический пересчёт пропускается, остаётся кнопка.
+- Тесты — табличный спек резолвера и регрессия существующих спеков потребителей.
 
-### Ответы 23.10.2026
+### Что из прежней спеки остаётся в силе
 
-- **Q21.** Отель Динамики в России без владельца и в Абхазии → новое юр лицо «Внешний поставщик» (оператор 78), реквизиты-заглушки до данных от бизнеса.
-- **Q22.** Системное юр лицо для внешнего ТО и владельца отеля — тот же «Внешний поставщик». Его нужно добавить в `ORDER_SUPPLIER_IDS` загрузчиков Динамики. 89 там тоже остаётся для старых заказов.
-- **Q23.** Versal (104) — тоже Динамика.
-- **ИНН 124** берём как есть в данных (`000000000000`).
-
-### Ответы 23.10.2026, вечер
-
-- **Q26.** При владельце отеля `line_items_v2.supplier_id` и значение по умолчанию в оплатах оператору — поставщик для 1С (кому платим), а не ВП. Агент чека — владелец через `hotel_organization_id`.
-- **Q28.** Так и задумано: поставщик, добавленный в матчинг, становится внешним ТО для всех своих отелей вне ветки владельца. Признак «только для 1С» не нужен. Для каждого нового оператора нужна статья договора.
-- **Q29.** Колонка «оператор» в шапке 1С — оператор поставщика для 1С (у отеля в Сочи через Островок — B2Bostrovok).
-- **Q30.** Старые заказы живут по старой логике, см. «Когда считаем и пересчитываем».
-
-- **Q31.** 1С при ВП в роли поставщика для 1С: временно берём шапку по-старому, из оплат оператору, пока матчинг не пополнят. Так 1С не станет хуже, чем сейчас: в октябре это 928 отелей с владельцем.
-
-### Заметка на будущее (Q27)
-
-Отелло (120), Академ (119), ХБ-Про (104), Бенуар (114), Э-Холидейз (103) и другие реестровые поставщики заведены юр лицами под оператором 78. Чтобы при владельце отеля они попадали в 1С через матчинг (`supplier_id` → оператор → гео, затем основное юр лицо), каждому нужен отдельный оператор со своим юр лицом, как у B2Bostrovok (72 → 24). Ещё нужны запись матчинга и статья договора. Пока этого нет, поставщик для 1С у российских отелей с владельцем таких поставщиков — ВП (928 заказов в октябре), а шапка 1С для них временно строится по-старому, из оплат оператору (Q31). Поставщики Динамики за ними с 01.09: 27 (774 заказа), 7 (607), 20 (377), 13 (145), 6 (139), 19 (104), 31 (40), 28 (2).
-
-Соответствие «поставщик Динамики → компания из реестра» по операциям загрузчиков (`operator_operations.supplier_id`, отельные заказы 78 с 01.07.2026):
-
-| `supplier_id` | Компания (загрузчик) | Заказов |
-|---|---|---|
-| 2 | 102 «Агентика Тревэл» (Островок) | 1 259 |
-| 7 | 119 «АОН.РУ» (Академ онлайн) | 167 |
-| 19 | 104 «ХБ-Про» | 293 |
-| 27 | 120 «ДубльГИС» (Отелло) | 85 |
-| 31, 36 | 103 «Э-Холидейз» | 346, 4 |
-| 41 | 114 «Бенуар» | 50 |
-
-У поставщиков 6, 13, 17, 20 и других операции есть только от реестра ГорТревела (89). Кому по ним платим, неизвестно, нужно спросить автора.
-
-### Прежние решения, которые остаются в силе
-
-- **Q4:** тип поиска берётся из пакета (`pb_tour.search_type`).
-- **Q5:** оплаты оператору — «кому заплатили», снимок даёт значение по умолчанию. Уточнено 23.10: по умолчанию берётся принципал, а системное юр лицо — только при владельце отеля.
-- **Q7:** пересчёт после оплаты разрешён; авансы на агенте первого аванса, перенос при детализации.
+- **Q7:** пересчёт после оплаты разрешён, авансы на агенте первого аванса, перенос при детализации.
 - **Q9:** кнопка под новой ролью. **Q10:** лог в `order_logs` с `action_code`.
-- **Q12:** роли не вводим.
-- **Q15:** матчинг только для отелей.
-- **Q20:** поиск статьи договора не меняем, проверку ИНН не добавляем. Статью Russian Express Online (73) нужно обновить данными: с 13.08 основное юр лицо — «Э-Холидейз».
+- **Q12:** роли юр лиц не вводим. **Q15:** матчинг только для отелей.
+- **Q20:** поиск статьи договора не меняем, проверку ИНН не добавляем.
+- Справка о стоимости и PAPI v3 показывают принципала, включая владельца.
 
-### Устарели с новой схемой
+### Что устарело
 
-- **Q1 и Q14** (организация Динамики и `search_types` для 89/113), **Q2** (124 только для оплаты зарубежных поставщиков).
-- **Q3** (копировать решение пакета в v1): входы теперь переживают актуализацию.
-- **Q19** (формат id компонента) для выбора принципала больше не нужен. Анализ остаётся в «Current system state» как справка для сверки.
+С правилами LT-55181 отменены:
+- «системное юр лицо» и «Внешний поставщик» в роли системного для внешнего ТО и владельца: юр лицо пакета теперь само юр лицо поставщика;
+- полиморфный принципал и отдельный «поставщик для 1С»: 1С берёт юр лицо пакета;
+- порядок «владелец раньше матчинга» и 1С из матчинга при владельце (Q25, Q26): владелец теперь только у поставщиков, 127 и отелей без поставщика;
+- `external_dynamic_matchings.active`, флаг нового флоу в `orders.data` вместо даты (Q30);
+- временный фолбэк 1С для «Внешнего поставщика» (Q31): автор выгружает 127 контрагентом;
+- 124 и ВП в `ORDER_SUPPLIER_IDS` (Q16, Q22): автор перевёл сверку на поиск по номеру брони;
+- удаление `before_save`-пересчёта: триггеры остаются, но идут через сервис снимка;
+- Q24 как решение: `is_split` у 124 и 127 автор оставил `0`, вопрос к нему.
 
-### Открытые вопросы
+Прежние версии спеки: `9f31f8f` (до схемы 22.10) и `8275131` (схема 22–23.10) в `agents_md`.
 
-- **Q24.** Закрыт 23.10 (пользователь): `is_split` у 124 и у «Внешнего поставщика» = `1`, как у 89. Флаг считаем легаси. Разбор ниже оставлен для справки. Исходный вопрос: какой `is_split` выставить у 124 и у «Внешнего поставщика»? Сейчас все отели Динамики на 89, у которого `is_split = 1`: с 15.10 из 822 списанных платежей по отелям 812 split. У 113 и 124 `is_split = 0`: туры 113 — 348 из 432 обычные. Проверено 23.10, что флаг юр лица реально меняет.
-  - **Влияет:**
-    - `Payment#correct_split_value` при capture в новой архитектуре копирует флаг в `payment.is_split`. Дальше от него зависят лимит capture (у split нельзя списать больше замороженного) и `Uniteller::Parser.need_set_bonuses?`. В старой архитектуре от него ещё зависят release и refund через `UnitellerSplit`, а в Pay2me — деление списания ЛТ 7% / ЛП 93%. По заказам 78 с 15.10 платежей Pay2me нет;
-    - `Package#show_modal_customer` → PAPI v3 `actualize` → модалка покупателя в legacy-чекауте (`client/lt-modules`, им пользуется WL);
-    - флаг `operator_organization_is_split` в шапке 1С. Для HotelOrganization нужно своё значение.
-  - **Не влияет (мёртвый код или не меняет результат):**
-    - `Order#with_advanced_receipts?` всегда `true` (`app/models/order.rb:3811-3813`), поэтому мёртв старый split-флоу чеков: `Receipt::SplitMethods` → `LineItemsV2::Builder` → `PaymentType::Prepayment` → `PriceCalculator#deposit_licence_price`, `#partial_repayment_item_price`, `Order#order_price(is_split_extras)`;
-    - `OrderExports` (`lt_total`/`lp_total`): `OperatorPayment#create_register_objects` выходит на `with_advanced_receipts?`, последняя запись — 11.11.2025;
-    - `split_agreement` при создании заказа: `set_advanced_flag` и так ставит его всем;
-    - ссылка на договор допуслуг: у АК видна всегда;
-    - текст оферты: оба ключа ведут на один URL;
-    - магазин Uniteller: сохраняется в платеже или выбирается по `payment.is_split` при создании платежа (`PaymentBuilder` — по умолчанию `true`), а не по юр лицу пакета.
+### Открытые вопросы к автору (по проверке 30.10)
 
-- **Q25.** Закрыт 23.10: автор согласен с порядком «владелец → матчинг → ВП → 124», а поставщик для 1С при владельце берётся из матчинга, иначе ВП. Исходная формулировка ниже. Ответ автора от 23.10: «В ветке „владелец найден“ в чек и договор ставим владельца, а в 1С пойдёт поставщик из `external_dynamic_matchings`: деньги мы заплатили не владельцу, а Бенуару, Островку и т. д.». Значит, в снимке нужна третья сущность — **поставщик для 1С** (OperatorOrganization того, кому платим). Шапка 1С читает его, а не принципала: решение Q6 уточняется. Что нужно выяснить:
-  - **Ветки.** Только ветка владельца или все отельные? При ВП и 124 в 1С тоже идёт поставщик из матчинга? Туры остаются на 113?
-  - **Матчинг станет справочником «поставщик Динамики → кому платим»** (Отелло, Академ, ХБ-Про, Бенуар, Э-Холидейз…)? Тогда нужен признак, отличающий внешнего ТО со своим договором (Pegast, Anex, B2B-Островок) от «просто получателя оплаты». Иначе отель такого поставщика уйдёт в ветку внешнего ТО и до владельца не дойдёт.
-  - **Куда ссылается запись.** Сейчас матчинг ссылается на оператора. Для 1С нужно юр лицо, например 120 Отелло или 119 Академ под оператором 78. У Островка таких записей две: 24 (оператор 72) и 102 (оператор 78).
-  - **Российский отель через поставщика с договором** (Островок, Pegast): в договоре и чеке владелец или внешний ТО? Сейчас — внешний ТО.
-  - **Поставщика нет в матчинге:** что идёт в 1С?
-  - **Данные с 01.09** (российские отели Динамики с владельцем, поставщик не в матчинге). Поставщики 27 (774 заказа), 7 (607), 20 (377), 13 (145), 6 (139), 19 (104), 31 (40), 28 (2). Юр лица в оплатах оператору: 27 → 104 ХБ-Про и 120 Отелло, 7 → 104 и 119 Академ, 19 → 104, 31 → 103 Э-Холидейз, 28 → 106 Турплатформа, у 20, 13 и 6 — только 89 по умолчанию. Соответствие не один к одному.
-- **Q16.** Будет ли по 124 свой загрузчик реестра? По ответу автора, брони остаются в организациях Динамики, поэтому 124 добавляется в `ORDER_SUPPLIER_IDS` существующих загрузчиков.
-- **Q17, Q18.** Отложены. Загрузчики не перебирают организации Динамики 04 и 06, и чья организация 06, неизвестно. Это вопрос сверки.
-
-### Прочее
-
-- Хотфикс автора по 1С (#27206 в `master`, #27207 в `develop`, влит 21.10) правит тот же SQL.
-- Версия спеки до новой схемы — коммит `9f31f8f` в `agents_md`.
-- Цифры получены из Redash Replica 21–22.10.2026 ad-hoc запросами, сохранённые запросы не создавались.
+- **Детализированные заказы с новым юр лицом пакета** (272 АК + 126 старого флоу): вернуть на 89 или принять расхождение чека и 1С.
+- **Переносы**: около 525 заказов АК пойдут с переносом с 89, первые — в ночь на 31.10. Нужна проверка первой партии.
+- **Статьи**: перезапустить `supplier_agreements` для 93 (юр лицо 133 появилось после запуска, 60 заказов с 12.10 с пустым разделом); завести `…_78_operator_org_127`.
+- **OneTwoTrip (97)** без юр лица: 240 заказов на 127, за рубежом и в Беларуси — пустой раздел договора и агент с ИНН из нулей.
+- **ИНН `000000000000`** у 124 и 127: первые чеки с ними ещё не выбивались.
+- **`is_split`** у 124 и 127 = `0` при `1` у 89: сознательно ли.
+- **Versal (104)**: отели не идут по веткам Динамики выбора юр лица, но договор и чек поставщика у них есть.
+- **Ручной отельный пакет 78**: юр лицо выбирается по типу поиска заказа (`organization_search_type`), а `external_dynamic_agreement?` смотрит тип пакета, у ручного он `PACKAGE`. Если у такого пакета есть поставщик из матчинга, договор пойдёт по `…_78_operator_org_<юр лицо поставщика>`, которой нет. Резолвер переносит это как есть, пока автор не решит.
