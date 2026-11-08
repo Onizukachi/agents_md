@@ -1,9 +1,10 @@
 # agents_md
 
-Репозиторий содержит личные материалы для работы Codex и Claude Code с проектом
-LevelTravel. Он используется как источник для симлинков в локальном checkout
-LevelTravel и в глобальных каталогах агентов (`~/.codex/skills`,
-`~/.claude/skills`); копии этих материалов в основном репозитории не хранятся.
+Репозиторий содержит личные материалы для работы Codex, Claude Code и DeepSeek
+Harness с проектом LevelTravel. Он используется как источник для симлинков в
+локальном checkout LevelTravel и в глобальных каталогах агентов
+(`~/.codex/skills`, `~/.claude/skills`, `~/.dsh/skills`); копии этих материалов
+в основном репозитории не хранятся.
 
 ## Содержимое
 
@@ -27,6 +28,14 @@ Skills, относящиеся к основному workflow LevelTravel (`leve
 т. д.) ставит и обновляет
 `lt-skills sync` — он пишет собственные managed-копии в `~/.codex/skills` и
 `~/.claude/skills`, и скрипт настройки их не трогает.
+
+DeepSeek Harness ищет skills в `.dsh/skills` и `.agents/skills` внутри проекта и
+в `$DSH_HOME/skills` (`~/.dsh/skills`), а каталог `~/.claude/skills` не читает
+вообще. Поэтому личные skills линкуются ещё и в `~/.dsh/skills` — иначе в
+DeepSeek Harness они не видны. Этот каталог `lt-skills` не использует, так что
+managed-копии реестра личным симлинкам там не угрожают: в `~/.codex/skills` и
+`~/.claude/skills` `lt-skills` считает ссылку на git-checkout пропущенной и при
+`--force` заменяет её копией.
 
 ## Настройка симлинков
 
@@ -56,10 +65,11 @@ scripts/setup_leveltravel_agent_links.sh /путь/к/leveltravel
   `.git/info/exclude` (`/AGENTS.md`, `/CONTEXT.md`, `/.agents/docs`,
   `/.agents/tasks`, `/.claude/settings.json`), чтобы локальный overlay не
   попадал в `git status`;
-- симлинки на личные skills из `agents_md/.agents/skills` в `~/.codex/skills`
-  и `~/.claude/skills`.
+- симлинки на личные skills из `agents_md/.agents/skills` в `~/.codex/skills`,
+  `~/.claude/skills` и `~/.dsh/skills`.
 
-Каталоги Codex и Claude переопределяются через `CODEX_HOME` и `CLAUDE_HOME`.
+Каталоги Codex, Claude и DeepSeek Harness переопределяются через `CODEX_HOME`,
+`CLAUDE_HOME` и `DSH_HOME`.
 
 Скрипт не перезаписывает существующие конфликтующие файлы или ссылки: при
 расхождении он завершается с ошибкой и просит разобраться вручную. Повторный

@@ -6,6 +6,7 @@ agent_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 project_root="${1:-$agent_root/../leveltravel}"
 codex_root="${CODEX_HOME:-$HOME/.codex}"
 claude_root="${CLAUDE_HOME:-$HOME/.claude}"
+dsh_root="${DSH_HOME:-$HOME/.dsh}"
 
 die() {
   echo "setup-leveltravel-agent-links: $*" >&2
@@ -52,18 +53,28 @@ exclude_if_missing '/.agents/docs'
 exclude_if_missing '/.agents/tasks'
 exclude_if_missing '/.claude/settings.json'
 
-# Personal skills (this checkout) go straight into both runtimes. Registry-distributed
-# skills (integration-*, mm-gateway, yandex-*, etc.) are installed and kept current by
-# `lt-skills sync` instead, which writes its own copies into both directories below —
-# this script must not symlink or otherwise manage them.
+# Personal skills (this checkout) go straight into every runtime we know about.
+# Registry-distributed skills (integration-*, mm-gateway, yandex-*, etc.) are
+# installed and kept current by `lt-skills sync` instead, which writes its own
+# copies into the directories below — this script must not symlink or otherwise
+# manage them.
+#
+# DeepSeek Harness discovers skills in `$DSH_HOME/skills` and never looks at
+# `~/.claude/skills`, so personal skills need their own links there. That
+# directory is also the safe place for them: `lt-skills` does not know about it
+# and installs its registry copies only into the Codex and Claude directories.
+# A personal skill linked into a directory `lt-skills` manages would be reported
+# as a skipped symlink and, under `--force`, replaced by a managed copy.
 mkdir -p "$codex_root/skills"
 mkdir -p "$claude_root/skills"
+mkdir -p "$dsh_root/skills"
 if [ -d "$agent_root/.agents/skills" ]; then
   for personal_skill in "$agent_root/.agents/skills"/*; do
     test -e "$personal_skill" || continue
     skill_name="$(basename "$personal_skill")"
     link_if_missing "$personal_skill" "$codex_root/skills/$skill_name"
     link_if_missing "$personal_skill" "$claude_root/skills/$skill_name"
+    link_if_missing "$personal_skill" "$dsh_root/skills/$skill_name"
   done
 fi
 
