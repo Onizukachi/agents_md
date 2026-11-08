@@ -18,6 +18,9 @@ These rules apply to every agent and override the project skills in `.agents/ski
 
 - Tests: the local full gate of `leveltravel-pr-workflow` is replaced by `bundle exec rspec` in the Rails container (see Quick Start). The PR body's Tests section lists the commands actually run and, instead of local full-gate lines, `PENDING remote authoritative amd64 gate: TeamCity rails-rspec`.
 - Review: the native pass of `leveltravel-pr-review` is the host's own code review (Codex: `codex exec review`; Claude Code: the built-in `code-review` skill); the focused companion is a fresh subagent with the companion prompt. Skip steps meant for another host.
+- Review, native pass on Claude Code: run it only through the `code-review` skill. Do not spawn an ordinary agent as a "native review"; it duplicates the skill and is only a standard-agent fallback.
+- Review, companion scope: decide from the diff, not from the branch type (a hotfix can be as large as a feature). Skip the companion for a minor, localized change (a few lines in one path, no new flow, no schema or shared-contract change, no new requirement to verify) and write `companion: skipped, minor localized change` in the PR Review section. Run it for anything larger.
+- Review, rounds after fixes: the native pass reviews the final diff; the companion checks only the delta of the fixes, not the whole diff again.
 
 Questions about production behavior are answered with the installed `lt-*` skills, not guessed from code. They need the corporate VPN or an office network: `lt-sentry` (errors), `lt-elastic` (logs), `lt-metrics` (metrics), `lt-redash` (read-only data: Replica, ClickHouse), `lt-teamcity` (builds and deploys), `lt-k8s-dev` (developer stands).
 
