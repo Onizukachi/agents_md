@@ -31,7 +31,7 @@ Questions about production behavior are answered with the installed `lt-*` skill
 
 Branch names, PR titles and PR bodies follow `leveltravel-pr-workflow` and `leveltravel-hotfix-workflow` as written. The rules below add to them or override them where they differ.
 
-- Commits: title only, no body, no `Co-Authored-By` trailer, always in English. Regular tasks: `LT-<number> <imperative title>`. Hotfixes: `HOTFIX: <summary>`.
+- Commits: title only, no body, no `Co-Authored-By` trailer, always in English. Only the first commit of a branch gets the task format: `LT-<number> <imperative title>` for regular tasks, `HOTFIX: <summary>` for hotfixes. Follow-up commits (review fixes and the like) are a plain imperative title without the prefix.
 - No tool attribution anywhere: no `Co-Authored-By`, no "Generated with ..." line in commits or PR bodies.
 ## 5) Further Reading
 
