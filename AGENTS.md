@@ -33,8 +33,6 @@ Branch names, PR titles and PR bodies follow `leveltravel-pr-workflow` and `leve
 
 - Commits: title only, no body, no `Co-Authored-By` trailer, always in English. Regular tasks: `LT-<number> <imperative title>`. Hotfixes: `HOTFIX: <summary>`.
 - No tool attribution anywhere: no `Co-Authored-By`, no "Generated with ..." line in commits or PR bodies.
-- Regular tasks are squash-merged into `develop`.
-
 ## 5) Further Reading
 
 Load these only when the task touches their topic:
