@@ -29,13 +29,11 @@ Questions about production behavior are answered with the installed `lt-*` skill
 
 ## 4) Git and PRs
 
-These rules apply to every agent and override `leveltravel-pr-workflow` and `leveltravel-hotfix-workflow` where they differ.
+Branch names, PR titles and PR bodies follow `leveltravel-pr-workflow` and `leveltravel-hotfix-workflow` as written. The rules below add to them or override them where they differ.
 
-- Branches: `feature/LT-<number>-<slug>`. Hotfixes, without a task number: `hotfix/<slug>` into `master` and `hotfix/<slug>-dev` into `develop`. Older `_dev` and `-master` suffixes are legacy; keep them only when continuing an existing paired PR.
 - Commits: title only, no body, no `Co-Authored-By` trailer, always in English. Regular tasks: `LT-<number> <imperative title>`. Hotfixes: `HOTFIX: <summary>`.
 - No tool attribution anywhere: no `Co-Authored-By`, no "Generated with ..." line in commits or PR bodies.
-- PR title and description: always in Russian. Title format: `LT-<number> <title>`, hotfixes `HOTFIX: <summary>`.
-- PR body: start from `.github/PULL_REQUEST_TEMPLATE/group_backend_template.md`, then add the Tests, Review, and Tracker sections from `leveltravel-pr-workflow` (headings and text in Russian). Regular tasks are squash-merged into `develop`.
+- Regular tasks are squash-merged into `develop`.
 
 ## 5) Further Reading
 
