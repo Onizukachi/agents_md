@@ -68,6 +68,14 @@ _Avoid_: Registry File, реестр (without qualifier)
 A Partner that runs the product on its own domain under its own brand, so Clients never see LevelTravel's name; distinct from an API partner, which only consumes the API.
 _Avoid_: WL, Reseller, Affiliate
 
+**Subagent**:
+A Partner that sells LevelTravel Orders to its own Clients and is kept in sync with each of its Orders by outbound webhook notifications from LevelTravel.
+_Avoid_: Reseller partner
+
+**Order Extra**:
+An additional service attached to an Order on top of the tour (insurance, visa, transfer, etc.); it is active until cancelled, and a cancelled one can be restored. A Subagent identifies an Order Extra by its id.
+_Avoid_: Add-on, Upsell, Допуслуга (in code and docs)
+
 **Partner Document Override**:
 A partner-specific version of a legal document that stands in for LevelTravel's base version for exactly one Partner; when none exists, the base document is used.
 _Avoid_: Partner article, WL agreement, Custom agreement
