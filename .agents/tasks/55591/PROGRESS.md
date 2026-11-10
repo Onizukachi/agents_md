@@ -35,3 +35,21 @@
 - **Ошибка доставки после коммита ловится и уходит в Sentry**, а не пробрасывается. Данные к этому моменту уже закоммичены. Проброс превратил бы, например, правку в менеджерке в 500 при сохранённой услуге. В спеке этого не было.
 - **Сценарий 16 (тот же `event_reference` при переотправке) отдельным тестом не покрыт.** Гарантию даёт существующий `Requester#create_unsend_notification`: он копирует `request` целиком, и мы его не меняли. Тест проверяет только, что reference — UUID и лежит в `request`.
 - **Сценарий 17 (порядок при одинаковой секунде)** покрыт порядком записей в модельном спеке. Отдельного спека `Requester` в репозитории нет, сортировку `created_at, id` отдельно не тестировал.
+
+## 2026-11-10 — убрано выключение уведомлений на создании
+
+Поиск по коду: в транзакции создания допуслуги её видимые поля нигде не меняются.
+- Повторно сохраняет запись только `assign_split_value!`, и он пишет `is_split` — поле вне среза.
+- Бронирование из `after_create` (`FinalBook`, `Order::TransferCorrection`) пишет только `supplier_extra`.
+- `Builder`, `AttachUpsaleOption` и покупка в CRM сохраняют новую запись один раз.
+- Единственный теоретический случай — мгновенный `cancelled` от Booker в `ApplyResponse`. Он вызывает `cancel!` на другом экземпляре, и флаг на объекте его всё равно не закрывал.
+
+По решению пользователя `mute_subagent_notifications_until_commit` и `subagent_notifications_muted?` удалены. Требование «доводки при создании событий не дают» обеспечивает фильтр по видимым полям.
+
+Тест `when the extra changes in the transaction that created it` заменён на `when a split extra is created / sends nothing on assigning its split value` (`code_name: 'infant'` → `assign_split_value!` → `update!(is_split: true)`). Мутация: если добавить `is_split` в `SUBAGENT_EDITABLE_ATTRIBUTES`, тест падает.
+
+Прогон: notifier, order_extra, sender, serializer, external_notification, tariff_prepayment_notifier, order_log, attachment, tourist, manager order_extras, supplier_extra/booker, order_extras — 249 примеров, 0 падений.
+
+## Rejected / changed
+
+- **Нет выключения уведомлений в транзакции создания** (в спеке: «флаг ставится в `after_create` и снимается после коммита или отката»). Изменения видимых полей в транзакции создания, если такие появятся, уходят субагенту как `order_extra_update`. Неизвестный `id` субагент обязан принимать (Q9).
