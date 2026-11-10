@@ -26,6 +26,22 @@ No SPEC.md: the scope was agreed in the conversation on 2026-11-10.
 
 - Hiding payment methods in `payments/payment_methods`: rejected by the user, the refusal happens when a payment is attempted.
 
+## Review fixes (2026-11-10)
+
+- The guard moved from `PaymentController#init` into the `get_payment_and_order` before_action: it also covers `session_id`, `validate` and `create_invoice` and runs before `@payment.update(is_outer:)`.
+- Site `orders#pay` and `orders#pay_remaining` redirect to the order page for a subagent order before touching or building a payment.
+- PAPI `uniteller#pay` checks both the found payment's order and `params[:order_id]` before `PaymentBuilder`.
+- `Payment#payment_url` returns `nil` (Ember turns `false` into the string "false"); the manager template `_payment.hjs` hides the copy link without a URL.
+
+## Kept after review (reviewer-confirmed)
+
+- PAPI `pay_3ds`/`data_3ds`/`acs_data`/`uniteller/pay_3ds` stay unguarded: they continue a 3DS flow that needs a bank registration from `pay_card`/`uniteller#pay`, both blocked now.
+- `PaymentController#pay_card_uniteller` has no route; no guard.
+- LT gift certificates on subagent orders (`ChargeOrderAmount` uses `update_attribute`): zero certificate payments ever on these partners' orders in production; documented residual.
+- Manager cash/fine/debtor payments on subagent orders are blocked too, as agreed ("менеджерка" is one of the blocked entry points).
+- `Order::AssignPartnerData` could attach a subagent partner via aflt to a site order, making it unpayable: no such order since 2025-11-01 in production; verification gap.
+- The per-entry-point guards are a deliberate tradeoff: entry points share no payment-reuse layer, creation is centralized in the model validation.
+
 ## State
 
-Focused specs green (1002 examples across subagent/payment specs). Not committed.
+Related specs green (1105 examples). Committed on `feature/LT-55631-forbid-subagent-own-payments`; review gate in progress.
