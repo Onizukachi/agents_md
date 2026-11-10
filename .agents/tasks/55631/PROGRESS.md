@@ -46,7 +46,8 @@ No SPEC.md: the scope was agreed in the conversation on 2026-11-10.
 
 - By the author's decision (2026-11-10) the guards in the legacy entry points were rolled back, with their specs: `papi/v3/uniteller_controller.rb`, `orders_controller.rb` (`pay`, `pay_remaining`), `payment_controller.rb`, `paylate/payment/create.rb`. Production logs: `uniteller/pay` 12 calls in 30 days (old iOS versions and tests), site `orders#pay` 1, `pay_remaining` 0, `payment#init`/`session_id`/`validate`/`create_invoice` 0 in 90 days, `payment/pay_card` link 1 in 90 days.
 - Consequences: creating a new payment on a subagent order is still blocked by the model validation, but reuse of the webhook payment №1 through legacy `uniteller/pay`, `orders#pay`, `payment#init` stays open; `orders#pay_remaining` answers 500 for a subagent order (no template for `render(status: 422)`); `Paylate::Payment::Create` returns success with an unsaved payment. The `/payment/pay_card` link still redirects to `/transaction`, where PAPI refuses with `payment_forbidden`.
-- The final head was not re-reviewed (the diff is a subset of the reviewed one).
+- Then, by the author's decision, the `Payment` create validation (`subagent_order_paid_by_webhook`, `partner_webhook?`, the `subagent_order_webhook_only` message, the `:partner_webhook` factory trait and the spec fixes) was removed too. What remains: the PAPI refusals `payment_forbidden` in `payments/pay_card`, `payments/payment_params` and `orders/pay`, and `Payment#payment_url` returning `nil` for a subagent order. Creating a payment on a subagent order through other paths (manager, Paylate, legacy site and Uniteller routes) is open again.
+- The final head `3dd18583` was not re-reviewed (the diff is a subset of the reviewed one).
 
 ## State
 
