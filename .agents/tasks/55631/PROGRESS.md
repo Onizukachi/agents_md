@@ -42,6 +42,12 @@ No SPEC.md: the scope was agreed in the conversation on 2026-11-10.
 - `Order::AssignPartnerData` could attach a subagent partner via aflt to a site order, making it unpayable: no such order since 2025-11-01 in production; verification gap.
 - The per-entry-point guards are a deliberate tradeoff: entry points share no payment-reuse layer, creation is centralized in the model validation.
 
+## Rejected / changed (after the review gate)
+
+- By the author's decision (2026-11-10) the guards in the legacy entry points were rolled back, with their specs: `papi/v3/uniteller_controller.rb`, `orders_controller.rb` (`pay`, `pay_remaining`), `payment_controller.rb`, `paylate/payment/create.rb`. Production logs: `uniteller/pay` 12 calls in 30 days (old iOS versions and tests), site `orders#pay` 1, `pay_remaining` 0, `payment#init`/`session_id`/`validate`/`create_invoice` 0 in 90 days, `payment/pay_card` link 1 in 90 days.
+- Consequences: creating a new payment on a subagent order is still blocked by the model validation, but reuse of the webhook payment №1 through legacy `uniteller/pay`, `orders#pay`, `payment#init` stays open; `orders#pay_remaining` answers 500 for a subagent order (no template for `render(status: 422)`); `Paylate::Payment::Create` returns success with an unsaved payment. The `/payment/pay_card` link still redirects to `/transaction`, where PAPI refuses with `payment_forbidden`.
+- The final head was not re-reviewed (the diff is a subset of the reviewed one).
+
 ## State
 
 Related specs green (1105 examples). Committed on `feature/LT-55631-forbid-subagent-own-payments`; review gate in progress.
