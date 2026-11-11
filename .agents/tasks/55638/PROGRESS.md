@@ -9,7 +9,7 @@
 - `StatementTemplate`: виды `operator_request`, `operator_minimization`, `operator_claim`; `.built_in_content(kind)` и `.built_in(kind)` (несохранённый шаблон со встроенным текстом). Поиск констант рендерера вынесен в `renderer_constant`, им же пользуется `available_variables_for_kind`.
 - Рендерер `StatementTemplates::OperatorStatementContentRenderer` и подклассы `Operator{Request,Minimization,Claim}ContentRenderer`. Каждый подкласс заново объявляет `AVAILABLE_VARIABLES` и хранит свой `BUILT_IN_CONTENT`: встроенный текст ищется по имени вида, как переменные.
 - `OrderStatement`: новые типы; `render_content` берёт шаблон из БД, иначе `StatementTemplate.built_in` (у справки о стоимости встроенного текста нет — по-прежнему ошибка); `filename` и `pdf_data` по типу.
-- `OperatorStatementPdf` и макет `app/views/orders/operator_statement.pdf.haml`: стили полей, «Дата» и «Подпись» в потоке после текста.
+- `OperatorStatementPdf` и макет `app/views/orders/operator_statement.pdf.haml`: стили полей, «Дата» и «Подпись» в потоке после текста (заменено при переделке: подвал в шаблоне, см. ниже).
 - Админка: `data-jodit-keep-empty-elements` у редактора «Справок», `jodit_init.js` читает его (откатено при переделке, см. ниже); форма шаблона подставляет встроенный текст по виду и меняет его при смене вида.
 - Локаль видов в `ru.yml`.
 - Спеки: рендерер (сценарии 4–14), `StatementTemplate` (переменные и встроенный текст видов), `OrderStatement` (встроенный текст трёх типов, шаблон из БД, имена файлов, PDF-класс), `OperatorStatementPdf`.
