@@ -81,3 +81,9 @@
 - **Rejected / changed (решение владельца задачи):** направление при отсутствии `name_ru_form3` остаётся «в <название>» (в dev у 101 из 223 стран формы нет, на проде не проверялось; возможна фраза вроде «в Канада»). Альтернатива — пустая линия для записи от руки; вернуться к ней можно правкой `Prefill#country_to`.
 - **Rejected / changed:** индекс по `order_appeals.manager_id` не добавлялся (в `additional_payment_requests` менеджерская колонка тоже без индекса, таблица небольшая); при росте данных добавить отдельной миграцией.
 - Гейт: оба прохода выполнены на head `df305962e`, блокирующих замечаний нет; остаются внешние проверки при выкатке (список выше) и проверка Ember-окна и админки в браузере.
+
+## 13.11.2026 — PR #27465 и хост ссылки
+
+- PR https://github.com/LevelTravel/leveltravel/pull/27465 создан (head `df305962e`), задача переведена в «Ревью».
+- **Rejected / changed:** хост ссылки на форму стал учитывать стенды: домен WL-партнёра (`Order#whitelabel_public_domain`), иначе `DomainService.host_name` (в production из `LT_BASE_DOMAIN`). Раньше был зашит `level.travel` в production, и на стендах ссылка вела на прод. `Order#public_domain` остался общим источником для `public_url` и `transaction_url`. Коммит `Build the appeal link host from the environment domain` запушен в PR и ревью не проходил — по решению владельца задачи; в PR это отмечено.
+- Проверить при выкатке: значение `LT_BASE_DOMAIN` на проде (ожидается `level.travel`) и стендах.
