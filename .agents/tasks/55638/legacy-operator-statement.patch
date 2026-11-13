@@ -1,0 +1,591 @@
+diff --git a/app/pdfs/operator_statement_pdf.rb b/app/pdfs/operator_statement_pdf.rb
+new file mode 100644
+index 000000000..af538a15c
+--- /dev/null
++++ b/app/pdfs/operator_statement_pdf.rb
+@@ -0,0 +1,74 @@
++# frozen_string_literal: true
++
++# Заявление туроператору от имени заказчика: запрос, минимизация, претензия.
++#
++# Документ подаёт сам заказчик, поэтому бланка, подписанта и печати
++# организации в нём нет: только текст заявления и пустые «Дата» и «Подпись».
++class OperatorStatementPdf
++  TEMPLATE = 'orders/operator_statement'
++  FONTS_PATH = 'app/assets/fonts_pdf'
++  # Строка подчёркиваний — место для записи от руки; в заполняемом PDF это поле ввода
++  BLANK = /_{3,}/
++  BLANK_CHAR_WIDTH_EM = 0.5
++  # Абзац-подпись, под которым в заполняемом PDF стоит пустое многострочное поле;
++  # высота поля в мм — в data-height абзаца
++  FIELD_SELECTOR = 'p.statement-field'
++  DEFAULT_FIELD_HEIGHT_MM = 25
++
++  attr_reader :content
++
++  # fillable: подчёркивания и абзацы statement-field дополняются полями PDF-формы, которые клиент заполняет сам
++  def initialize(content:, fillable: false)
++    @content = content
++    @fillable = fillable
++  end
++
++  def render
++    options = { page_size: 'A4', enable_local_file_access: true }
++    options[:extra] = '--enable-forms' if @fillable
++    WickedPdf.new.pdf_from_string(html, options)
++  end
++
++  def body
++    return content unless @fillable
++
++    @field_number = 0
++    fragment = Nokogiri::HTML5.fragment(content)
++    fragment.css(FIELD_SELECTOR).each { |label| add_text_area(label) }
++    fragment.to_html.gsub(BLANK) { |blank| input(blank.length) }
++  end
++
++  def html
++    ApplicationController.render(
++      template: TEMPLATE,
++      formats: [:pdf],
++      layout: false,
++      assigns: { statement: self }
++    )
++  end
++
++  def font_url(name)
++    "file://#{Rails.root.join(FONTS_PATH, name)}"
++  end
++
++  private
++
++  def add_text_area(label)
++    label.add_class('statement-field-label')
++    label.add_next_sibling(%(<textarea name="#{field_name}" style="height: #{field_height(label)}mm;"></textarea>))
++  end
++
++  def input(blank_length)
++    %(<input type="text" name="#{field_name}" style="width: #{blank_length * BLANK_CHAR_WIDTH_EM}em;">)
++  end
++
++  # Поля PDF-формы с одним именем делят значение, поэтому у каждого своё имя
++  def field_name
++    "field_#{@field_number += 1}"
++  end
++
++  def field_height(label)
++    height = label['data-height'].to_i
++    height.positive? ? height : DEFAULT_FIELD_HEIGHT_MM
++  end
++end
+diff --git a/app/services/statement_templates/operator_claim_content_renderer.rb b/app/services/statement_templates/operator_claim_content_renderer.rb
+new file mode 100644
+index 000000000..8e731b035
+--- /dev/null
++++ b/app/services/statement_templates/operator_claim_content_renderer.rb
+@@ -0,0 +1,30 @@
++# frozen_string_literal: true
++
++module StatementTemplates
++  # Претензия туроператору: заказчик требует компенсацию по туру
++  class OperatorClaimContentRenderer < OperatorStatementContentRenderer
++    AVAILABLE_VARIABLES = OperatorStatementContentRenderer::AVAILABLE_VARIABLES
++
++    BUILT_IN_CONTENT = <<~HTML
++      <p style="text-align: right;">Генеральному директору {{supplier_name_field}}</p>
++      <p style="text-align: right;">От {{customer_name_field}}</p>
++      <p style="text-align: right;">Паспорт {{passport_with_issue_field}}</p>
++      <p style="text-align: right;">Адрес регистрации {{registration_address_field}}</p>
++
++      <p style="margin-top: 10mm; text-align: center;">ПРЕТЕНЗИЯ</p>
++
++      <p>
++        Я, {{customer_name}}, приобрёл(а) тур {{country_to}} на {{tour_nights}},
++        с {{tour_start_date}} по {{tour_end_date}}, номер договора {{contract_number}}.
++      </p>
++
++      <p class="statement-field" data-height="30">Суть претензии.</p>
++
++      <p class="statement-field" data-height="30">Четкие требования.</p>
++
++      <p class="statement-field" data-height="20">К претензии прилагаю:</p>
++
++      <p style="margin-top: 15mm;">Дата<span style="float: right;">Подпись</span></p>
++    HTML
++  end
++end
+diff --git a/app/services/statement_templates/operator_minimization_content_renderer.rb b/app/services/statement_templates/operator_minimization_content_renderer.rb
+new file mode 100644
+index 000000000..63b905ba9
+--- /dev/null
++++ b/app/services/statement_templates/operator_minimization_content_renderer.rb
+@@ -0,0 +1,30 @@
++# frozen_string_literal: true
++
++module StatementTemplates
++  # Заявление на минимизацию: заказчик аннулирует тур и просит туроператора
++  # удержать только фактически понесённые расходы
++  class OperatorMinimizationContentRenderer < OperatorStatementContentRenderer
++    AVAILABLE_VARIABLES = OperatorStatementContentRenderer::AVAILABLE_VARIABLES
++
++    BUILT_IN_CONTENT = <<~HTML
++      <p style="text-align: right;">Генеральному директору {{supplier_name_field}}</p>
++      <p style="text-align: right;">От {{customer_name_field}}</p>
++      <p style="text-align: right;">Паспорт {{passport_field}}</p>
++
++      <p style="margin-top: 10mm; text-align: center;">ЗАЯВЛЕНИЕ НА МИНИМИЗАЦИЮ</p>
++
++      <p>
++        Я, {{customer_name}}, приобрёл(а) тур {{country_to}} на {{tour_nights}},
++        с {{tour_start_date}} по {{tour_end_date}}, номер договора {{contract_number}}.
++      </p>
++
++      <p>Описать причину аннуляции тура.</p>
++
++      <p>Написать просьбу о минимизации фактически понесенных расходов туроператором.</p>
++
++      <p>К минимизации прилагаю:</p>
++
++      <p style="margin-top: 15mm;">Дата<span style="float: right;">Подпись</span></p>
++    HTML
++  end
++end
+diff --git a/app/services/statement_templates/operator_request_content_renderer.rb b/app/services/statement_templates/operator_request_content_renderer.rb
+new file mode 100644
+index 000000000..39fbd103e
+--- /dev/null
++++ b/app/services/statement_templates/operator_request_content_renderer.rb
+@@ -0,0 +1,25 @@
++# frozen_string_literal: true
++
++module StatementTemplates
++  # Запрос туроператору: заказчик просит предоставить документы или сведения по туру
++  class OperatorRequestContentRenderer < OperatorStatementContentRenderer
++    AVAILABLE_VARIABLES = OperatorStatementContentRenderer::AVAILABLE_VARIABLES
++
++    BUILT_IN_CONTENT = <<~HTML
++      <p style="text-align: right;">Генеральному директору {{supplier_name_field}}</p>
++      <p style="text-align: right;">От {{customer_name_field}}</p>
++      <p style="text-align: right;">Паспорт {{passport_field}}</p>
++
++      <p style="margin-top: 10mm; text-align: center;">ЗАПРОС</p>
++
++      <p>
++        Я, {{customer_name}}, приобрёл(а) тур {{country_to}} на {{tour_nights}},
++        с {{tour_start_date}} по {{tour_end_date}}, номер договора {{contract_number}}.
++      </p>
++
++      <p>Описать причину запроса, что необходимо предоставить.</p>
++
++      <p style="margin-top: 15mm;">Дата<span style="float: right;">Подпись</span></p>
++    HTML
++  end
++end
+diff --git a/app/services/statement_templates/operator_statement_content_renderer.rb b/app/services/statement_templates/operator_statement_content_renderer.rb
+new file mode 100644
+index 000000000..52c310272
+--- /dev/null
++++ b/app/services/statement_templates/operator_statement_content_renderer.rb
+@@ -0,0 +1,143 @@
++# frozen_string_literal: true
++
++require 'cgi'
++
++module StatementTemplates
++  # Заявление туроператору от имени заказчика: запрос, минимизация, претензия.
++  #
++  # Шаблон хранит документ целиком: шапку, тело и «Дата / Подпись». Поля шапки
++  # (`*_field`) подставляют значение, а без него — подчёркивания с подсказкой под ними.
++  # Переменные тела без значения подставляют место для записи от руки: подчёркивания
++  # примерной длины значения, для ФИО — «(ФИО)».
++  class OperatorStatementContentRenderer
++    AVAILABLE_VARIABLES = {
++      'supplier_name_field' => 'Шапка: юрлицо туроператора, без него — линия с подсказкой',
++      'customer_name_field' => 'Шапка: ФИО заказчика кириллицей, без него — линия с подсказкой',
++      'passport_field' => 'Шапка: внутренний паспорт заказчика, без него — линия с подсказкой',
++      'passport_with_issue_field' => 'Шапка претензии: внутренний паспорт и линия «кем и когда выдан»',
++      'registration_address_field' => 'Шапка: линия адреса регистрации',
++      'supplier_name' => 'Юрлицо туроператора',
++      'customer_name' => 'ФИО заказчика кириллицей, без него — «(ФИО)»',
++      'passport_number' => 'Внутренний паспорт заказчика',
++      'country_to' => 'Направление с предлогом («в Турцию»)',
++      'tour_nights' => 'Ночей в туре с перелётом («8 ночей»)',
++      'tour_start_date' => 'Дата начала тура',
++      'tour_end_date' => 'Дата окончания тура',
++      'contract_number' => 'Номер договора (номер заявки у туроператора)',
++    }.freeze
++
++    # Чем заменяется переменная тела без значения
++    BLANKS = {
++      'supplier_name' => '_' * 30,
++      'customer_name' => '(ФИО)',
++      'passport_number' => '_' * 15,
++      'country_to' => '_' * 14,
++      'tour_nights' => '____ ночей',
++      'tour_start_date' => '_' * 10,
++      'tour_end_date' => '_' * 10,
++      'contract_number' => '_' * 20,
++    }.freeze
++
++    # Поле шапки: из какой переменной берётся значение, длина пустой линии и подсказка под ней
++    HEADER_FIELDS = {
++      'supplier_name_field' => { value: 'supplier_name', blank: 30, hint: '(наименование туроператора)' },
++      'customer_name_field' => { value: 'customer_name', blank: 30, hint: '(ФИО заказчика)' },
++      'passport_field' => { value: 'passport_number', blank: 20, hint: '(серия номер внутреннего паспорта)' },
++      'registration_address_field' => { blank: 30 },
++    }.freeze
++
++    DATE_FORMAT = '%d.%m.%Y'
++
++    def self.call(template:, order:)
++      new(template: template, order: order).call
++    end
++
++    def initialize(template:, order:)
++      @template = template.to_s
++      @order = order
++    end
++
++    def call
++      header_variables.merge(body_variables).reduce(template) do |result, (key, value)|
++        result.gsub(/\{\{\s*#{Regexp.escape(key)}\s*\}\}/) { value }
++      end
++    end
++
++    private
++
++    attr_reader :template, :order
++
++    def values
++      @values ||= {
++        'supplier_name' => supplier_name,
++        'customer_name' => customer_name,
++        'passport_number' => passport_number,
++        'country_to' => country_to,
++        'tour_nights' => tour_nights,
++        'tour_start_date' => package.start_date&.strftime(DATE_FORMAT),
++        # Package#end_date без даты начала падает, а без неё и конец тура не нужен
++        'tour_end_date' => (package.end_date&.strftime(DATE_FORMAT) if package.start_date),
++        'contract_number' => order.operator_booking_id,
++      }
++    end
++
++    def body_variables
++      values.to_h { |key, value| [key, value.present? ? CGI.escapeHTML(value.to_s) : BLANKS.fetch(key)] }
++    end
++
++    def header_variables
++      fields = HEADER_FIELDS.transform_values do |field|
++        value = values[field[:value]]
++        value.present? ? CGI.escapeHTML(value.to_s) : blank(field[:blank], field[:hint])
++      end
++      fields.merge('passport_with_issue_field' => passport_with_issue_field)
++    end
++
++    # В претензии к паспорту нужно, кем и когда он выдан: этих данных у нас нет, их впишут от руки
++    def passport_with_issue_field
++      passport = values['passport_number']
++      return blank(35, '(серия номер внутреннего паспорта, кем и когда выдан)') if passport.blank?
++
++      "#{CGI.escapeHTML(passport)}, #{blank(30, '(кем и когда выдан)')}"
++    end
++
++    # Пустое поле — подчёркивания, под ними по центру подсказка
++    def blank(length, hint)
++      line = '_' * length
++      hint ? %(<span class="statement-blank">#{line}<br><span class="statement-hint">#{hint}</span></span>) : line
++    end
++
++    def package
++      @package ||= order.package
++    end
++
++    def supplier_name
++      (package.detected_operator_organization || package.operator_organization)&.name
++    end
++
++    # Только кириллицей: латиницей (как в загранпаспорте, без отчества) ФИО для заявления не годится, его впишут от руки
++    def customer_name
++      customer = order.customer
++      name = [customer&.surname, customer&.name, customer&.patronymic].filter_map { |part| part.to_s.strip.presence }
++      name.join(' ') if name.any? && name.join.match?(/\A[\p{Cyrillic}\s.'’-]+\z/)
++    end
++
++    # В заявлении нужен внутренний паспорт: номер загранпаспорта под ним был бы ошибкой
++    def passport_number
++      order.customer.passport_number if order.customer&.internal_passport?
++    end
++
++    def country_to
++      country = package.country
++      country&.name_ru_form3.presence || country&.name_ru.presence&.then { |name| "в #{name}" }
++    end
++
++    # Ночи тура целиком, с перелётом; в отеле их может быть меньше
++    def tour_nights
++      count = [package.original_nights, package.nights_count].find { |nights| nights.to_i.positive? }
++      return if count.blank?
++
++      "#{count} #{Russian.pluralize(count, 'ночь', 'ночи', 'ночей')}"
++    end
++  end
++end
+diff --git a/app/views/orders/operator_statement.pdf.haml b/app/views/orders/operator_statement.pdf.haml
+new file mode 100644
+index 000000000..c8ae7e01c
+--- /dev/null
++++ b/app/views/orders/operator_statement.pdf.haml
+@@ -0,0 +1,33 @@
++!!!
++%html
++  %head
++    %meta{ charset: 'utf-8' }/
++    :css
++      @font-face {
++        font-family: 'PdfTimes';
++        font-weight: normal;
++        src: url('#{@statement.font_url('TimesNewRoman.ttf')}');
++      }
++      @font-face {
++        font-family: 'PdfTimes';
++        font-weight: bold;
++        src: url('#{@statement.font_url('TimesNewRomanBold.ttf')}');
++      }
++      body {
++        font-family: 'PdfTimes', 'Times New Roman', serif;
++        font-size: 14pt;
++        color: #000;
++        margin: 0;
++        padding: 12mm 18mm;
++      }
++      p { margin: 0 0 5mm; line-height: 1.4; }
++      .statement-blank { display: inline-block; vertical-align: top; text-align: center; }
++      .statement-hint { font-size: 9pt; line-height: 1; }
++      input { font: inherit; border: 0; border-bottom: 1px solid #000; }
++      .statement-field-label { margin-bottom: 1mm; }
++      textarea {
++        display: block; box-sizing: border-box; width: 100%; margin: 0 0 5mm;
++        font: inherit; border: 1px solid #999;
++      }
++  %body
++    != @statement.body
+diff --git a/spec/services/statement_templates/operator_statement_content_renderer_spec.rb b/spec/services/statement_templates/operator_statement_content_renderer_spec.rb
+new file mode 100644
+index 000000000..9119bcdb9
+--- /dev/null
++++ b/spec/services/statement_templates/operator_statement_content_renderer_spec.rb
+@@ -0,0 +1,214 @@
++# frozen_string_literal: true
++
++require 'spec_helper'
++
++RSpec.describe StatementTemplates::OperatorStatementContentRenderer do
++  subject(:content) { described_class.call(template: template, order: order) }
++
++  let(:customer) do
++    instance_double(
++      Customer,
++      surname: 'Иванов',
++      name: 'Иван',
++      patronymic: patronymic,
++      passport_number: '4510 123456',
++      internal_passport?: internal_passport
++    )
++  end
++  let(:patronymic) { 'Иванович' }
++  let(:internal_passport) { true }
++  let(:country) { instance_double(Place, name_ru: 'Турция', name_ru_form3: 'в Турцию') }
++  let(:supplier) { instance_double(OperatorOrganization, name: 'ООО «Анекс Туризм»') }
++  let(:package) do
++    instance_double(
++      Package,
++      detected_operator_organization: nil,
++      operator_organization: supplier,
++      country: country,
++      original_nights: 8,
++      nights_count: 7,
++      start_date: Date.new(2026, 10, 1),
++      end_date: Date.new(2026, 10, 9)
++    )
++  end
++  let(:booking_id) { 'ANX-123' }
++  let(:order) do
++    instance_double(Order, package: package, customer: customer, operator_booking_id: booking_id)
++  end
++
++  describe 'body variables' do
++    let(:template) do
++      '{{supplier_name}}|{{customer_name}}|{{passport_number}}|{{country_to}}|{{tour_nights}}|' \
++        '{{tour_start_date}}|{{tour_end_date}}|{{contract_number}}'
++    end
++
++    it 'renders the order data as text' do
++      expect(content).to eq(
++        'ООО «Анекс Туризм»|Иванов Иван Иванович|4510 123456|в Турцию|8 ночей|01.10.2026|09.10.2026|ANX-123'
++      )
++    end
++
++    context 'without the order data' do
++      let(:supplier) { nil }
++      let(:customer) { nil }
++      let(:country) { nil }
++      let(:booking_id) { nil }
++
++      before do
++        allow(package).to receive_messages(original_nights: nil, nights_count: nil, start_date: nil)
++        allow(package).to receive(:end_date).and_raise(NoMethodError, "undefined method '+' for nil")
++      end
++
++      it 'renders blanks to fill in by hand' do
++        expect(content).to eq(
++          "#{'_' * 30}|(ФИО)|#{'_' * 15}|#{'_' * 14}|____ ночей|#{'_' * 10}|#{'_' * 10}|#{'_' * 20}"
++        )
++      end
++    end
++  end
++
++  describe 'header fields' do
++    let(:template) do
++      '{{supplier_name_field}}|{{customer_name_field}}|{{passport_field}}|' \
++        '{{passport_with_issue_field}}|{{registration_address_field}}'
++    end
++    let(:blank_with_hint) do
++      '<span class="statement-blank">%<line>s<br><span class="statement-hint">%<hint>s</span></span>'
++    end
++
++    it 'renders the order data as text and blank lines for data we do NOT have' do
++      expect(content.split('|')).to eq(
++        [
++          'ООО «Анекс Туризм»',
++          'Иванов Иван Иванович',
++          '4510 123456',
++          "4510 123456, #{format(blank_with_hint, line: '_' * 30, hint: '(кем и когда выдан)')}",
++          '_' * 30
++        ]
++      )
++    end
++
++    context 'without the order data' do
++      let(:supplier) { nil }
++      let(:customer) { nil }
++
++      it 'renders blank lines with hints' do
++        expect(content.split('|')).to eq(
++          [
++            format(blank_with_hint, line: '_' * 30, hint: '(наименование туроператора)'),
++            format(blank_with_hint, line: '_' * 30, hint: '(ФИО заказчика)'),
++            format(blank_with_hint, line: '_' * 20, hint: '(серия номер внутреннего паспорта)'),
++            format(blank_with_hint, line: '_' * 35, hint: '(серия номер внутреннего паспорта, кем и когда выдан)'),
++            '_' * 30
++          ]
++        )
++      end
++    end
++  end
++
++  describe 'supplier name' do
++    let(:template) { '{{supplier_name_field}} {{supplier_name}}' }
++    let(:supplier) { instance_double(OperatorOrganization, name: 'ООО "Тур" & Co') }
++
++    it 'escapes HTML characters' do
++      expect(content).to eq('ООО &quot;Тур&quot; &amp; Co ООО &quot;Тур&quot; &amp; Co')
++    end
++  end
++
++  describe 'customer name' do
++    let(:template) { '{{customer_name_field}}|{{customer_name}}' }
++    let(:name_blanks) do
++      '<span class="statement-blank">______________________________<br>' \
++        '<span class="statement-hint">(ФИО заказчика)</span></span>|(ФИО)'
++    end
++
++    context 'when the customer has NO patronymic' do
++      let(:patronymic) { nil }
++
++      it 'renders the surname and the name' do
++        expect(content).to eq('Иванов Иван|Иванов Иван')
++      end
++    end
++
++    context 'when the customer name is in Latin' do
++      let(:customer) do
++        instance_double(
++          Customer,
++          surname: 'KONDRATOV',
++          name: 'ANDREI',
++          patronymic: nil,
++          passport_number: '751234567',
++          internal_passport?: false
++        )
++      end
++
++      it 'leaves blanks for the name to fill in by hand' do
++        expect(content).to eq(name_blanks)
++      end
++    end
++
++    context 'without a customer' do
++      let(:customer) { nil }
++
++      it 'leaves blanks for the name to fill in by hand' do
++        expect(content).to eq(name_blanks)
++      end
++    end
++  end
++
++  describe 'passport' do
++    let(:template) { '{{passport_number}}' }
++
++    context 'when the customer has an international passport' do
++      let(:internal_passport) { false }
++
++      it 'leaves a blank for the internal passport' do
++        expect(content).to eq('_' * 15)
++      end
++    end
++  end
++
++  describe 'destination' do
++    let(:template) { '{{country_to}}' }
++
++    context 'when the country has no prepositional form' do
++      let(:country) { instance_double(Place, name_ru: 'Турция', name_ru_form3: nil) }
++
++      it 'prepends the preposition to the country name' do
++        expect(content).to eq('в Турция')
++      end
++    end
++
++    context 'when the country has no names' do
++      let(:country) { instance_double(Place, name_ru: nil, name_ru_form3: nil) }
++
++      it 'leaves a blank' do
++        expect(content).to eq('_' * 14)
++      end
++    end
++  end
++
++  describe 'tour nights' do
++    let(:template) { '{{tour_nights}}' }
++
++    context 'without tour nights' do
++      before { allow(package).to receive(:original_nights).and_return(nil) }
++
++      it 'renders nights in the hotel' do
++        expect(content).to eq('7 ночей')
++      end
++    end
++
++    context 'with zero tour nights' do
++      before { allow(package).to receive(:original_nights).and_return(0) }
++
++      it 'renders nights in the hotel' do
++        expect(content).to eq('7 ночей')
++      end
++    end
++  end
++
++  it 'keeps unknown placeholders' do
++    expect(described_class.call(template: '{{unknown}}', order: order)).to eq('{{unknown}}')
++  end
++end
