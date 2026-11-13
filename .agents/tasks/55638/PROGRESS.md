@@ -87,3 +87,9 @@
 - PR https://github.com/LevelTravel/leveltravel/pull/27465 создан (head `df305962e`), задача переведена в «Ревью».
 - **Rejected / changed:** хост ссылки на форму стал учитывать стенды: домен WL-партнёра (`Order#whitelabel_public_domain`), иначе `DomainService.host_name` (в production из `LT_BASE_DOMAIN`). Раньше был зашит `level.travel` в production, и на стендах ссылка вела на прод. `Order#public_domain` остался общим источником для `public_url` и `transaction_url`. Коммит `Build the appeal link host from the environment domain` запушен в PR и ревью не проходил — по решению владельца задачи; в PR это отмечено.
 - Проверить при выкатке: значение `LT_BASE_DOMAIN` на проде (ожидается `level.travel`) и стендах.
+
+## 13.11.2026 — прикрепление к заказу остаётся по кнопке (решение владельца)
+
+- Уточнение к прежним формулировкам: вебхук «Загружен документ» (`Attachment#make_notify`) срабатывает только при изменении `source_hash`; у вложения из `attach_to_order!` его нет, поэтому вебхук не уходит ни по кнопке, ни при автоматическом прикреплении. Партнёр видит вложение заказа через PAPI v2/v3, agency_api и `documents_notification` (`ExternalNotificationSerializer#permitted_attachments`, фильтр по подстрокам названия: «Заявление» отсекается, «Претензия» и «Запрос» нет). Различие кнопки и автоматики — в том, что менеджер решает, показывать ли PDF с паспортом клиента партнёру.
+- Если понадобится автоматическое прикрепление: `code_name = 'order_appeal'`, общий фильтр в PAPI v2/v3, agency_api и `permitted_attachments`, копирование после отправки формы (не внутри `with_lock`).
+- Локальный коммит `caabc1383` (сжатие превью текста шаблона в окне менеджерки) не запушен: ждёт проверки владельцем задачи в браузере.
